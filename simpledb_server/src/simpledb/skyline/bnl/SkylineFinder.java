@@ -2,6 +2,7 @@ package simpledb.skyline.bnl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import simpledb.multibuffer.WindowUpdateScan;
@@ -13,77 +14,62 @@ public class SkylineFinder {
 	private WindowUpdateScan window;
 	private TableScan tempFile;
 	private RecordFile input;
-	private RID windRID, inpRID, tmpRID;
+	private int diskerisimsayisi;
+	private RID windRID, inpRID;
 	private int id, blkNo;
-	private static int k, l;
-	// private Map<RecordFile, WindowUpdateScan> inputDominationMap = new
-	// HashMap<>();
-	// private Map<TableScan, WindowUpdateScan> tempDominationMap = new
-	// HashMap<>();
+	private ArrayList<String> skylineDimensions;
+//	private int tempRecordSize;// bu silinmeli 4...
+//	private static int k, l;
+	private int upsize;
 	private Map<RID, RID> inputDominationMap = new HashMap<>();
-	private Map<RID, RID> tempDominationMap = new HashMap<>();
-	/*
-	 * TempFile iterasyonu sirasýnda window tarafýndan domine edilen tempFile
-	 * elemanlarýnýn kaydýný tutar.
-	 */
-	private ArrayList<RID> dominatedElementsOfTemp = new ArrayList<>();
-	private ArrayList<RID> skylineElementsOfTemp = new ArrayList<>();
-	private Map<RID, Long> timeOfRecord = new HashMap<>();
-	private Map<RID, Long> timeOfTempRecord = new HashMap<>();
 	static ArrayList<Integer> skylinePoints = new ArrayList<>();
-	private int tempRecordSize;
 
-	// SkylineFinder(WindowUpdateScan wind, RecordFile input) {
-	// this.window = wind;
-	// this.input = input;
-	// }
-	//
-	// SkylineFinder(WindowUpdateScan wind, TableScan temp) {
-	// this.window = wind;
-	// this.tempFile = temp;
-	// }
-	SkylineFinder() {
-
+	SkylineFinder(ArrayList<String> skylineDimension) {
+		this.skylineDimensions = skylineDimension;
 	}
-	// public boolean isThereDomination() {
-	// return compare4Domination() > 0;
-	// }
+
+	public ArrayList<String> getSkylineDimensions() {
+		return skylineDimensions;
+	}
 
 	/*
 	 * input windowda karþýlaþtýrýldýðý deðeri domine ediyorsa 1, input domine
 	 * ediliyorsa -1, ikisi de domine edilemiyorsa 0 döndürülür
 	 */
 	public int compareDomination4Input() {
-		// if (timeOfRecord == null) {
-		// return 1;// window'a ilk eleman eklenmesi için.
-		// } else {
-		if (input.getInt("A") < window.getInt("A")) {
-			if (input.getInt("B") <= window.getInt("B")) {
-				// inputDominationMap.put(window, input);
-				return 1;// input elemaný windowdakini domine etti.
-			} else
-				return 0;// inputdaki ve windowdaki eleman birbirini domine
-							// edemedi.
-		} else {
-			if (input.getInt("A") > window.getInt("A")) {
-				if (input.getInt("B") >= window.getInt("B"))
-					return -1;// inputdaki eleman domine edildi.
-				else
-					return 0;
-			} else {
-				if (input.getInt("B") > window.getInt("B"))
-					return -1;
-				else {
-					if (input.getInt("B") < window.getInt("B")) {
-						// inputDominationMap.put(window, input);
-						return 1;
-					}
 
-					else
-						return 0;
+		int k = 0;
+		upsize = getSkylineDimensions().size();
+		for (String tempField : getSkylineDimensions()) {
+			k += deepCompare(input.getInt(tempField), window.getInt(tempField));
+		}
+		if ((upsize != 0) && k == upsize)
+			return 1;
+		else {
+			if ((upsize != 0) && k == -upsize)
+				return -1;
+			else
+				return 0;
+		}
+
+	}
+
+	public int deepCompare(Object x, Object y) {
+		int m = -2;
+		if (x instanceof Integer && y instanceof Integer) {
+			if ((int) x < (int) y)
+				m = 1;
+			else {
+				if ((int) x > (int) y)
+					m = -1;
+				else {
+					upsize--;
+					m = 0;
 				}
+
 			}
 		}
+		return m;
 	}
 
 	public void setInputDominationMap() {
@@ -100,72 +86,43 @@ public class SkylineFinder {
 	}
 
 	public void putRecordToWindow() {
+		/*System.out.println("inputdan windowa:" + k++);*/
+		for (String tempField : getSkylineDimensions()) {
+			// System.out.println(tempField);
+			window.setInt(tempField, input.getInt(tempField));
 
-		window.setInt("A", input.getInt("A"));
+			/*System.out.print(" " + input.getInt(tempField));*/
+
+		}
+		/*System.out.println(" ");*/
 		// System.out.println(" " + window.getInt("A"));
-		window.setInt("B", input.getInt("B"));
+		// window.setInt("B", input.getInt("B"));
 		// System.out.println(" " + window.getInt("B"));
-		long timestamp = System.currentTimeMillis();
+		// long timestamp = System.currentTimeMillis();
 
-		System.out.println("inputdan windowa:" + k++);
-		System.out.print(" " + input.getInt("A"));
-		System.out.print(" " + input.getInt("B"));
-		System.out.println(" " + timestamp);
+		// System.out.print(" " + input.getInt("A"));
+		// System.out.println(" " + input.getInt("B"));
 
-		id = window.getRid().id();
-		blkNo = window.getRid().blockNumber();
-		windRID = new RID(blkNo, id);
-		// for (RID rid : timeOfRecord.keySet()) {
-		// if (rid.equals(windRID)){
-		// timeOfRecord.remove(rid, timeOfRecord.get(rid));
-		// break;
-		// }
-		// }
-		// removeTimeRec()
-		// if(!timeOfRecord.isEmpty())
-		removeTimeRecord(windRID);
-		timeOfRecord.put(windRID, timestamp);
-	}
-
-	void putTempToWindow() {
-		window.setInt("A", tempFile.getInt("A"));
-		window.setInt("B", tempFile.getInt("B"));
-		long timestamp = System.currentTimeMillis();
-		System.out.println("tempFile'dan windowa:" + l++);
-		System.out.print(" " + tempFile.getInt("A"));
-		System.out.print(" " + tempFile.getInt("B"));
-		System.out.println(" " + timestamp);
-		id = window.getRid().id();
-		blkNo = window.getRid().blockNumber();
-		windRID = new RID(blkNo, id);
-
-		// for (RID rid : timeOfRecord.keySet()) {
-		// if (rid.equals(windRID)) {
-		// timeOfRecord.remove(rid, timeOfRecord.get(rid));
-		// break;
-		// }
-		// }
-		// removetimeRec
-		removeTimeRecord(windRID);
-		timeOfRecord.put(windRID, timestamp);
 	}
 
 	void putRecordToTemp() {
-		tempFile.setInt("A", input.getInt("A"));
-		tempFile.setInt("B", input.getInt("B"));
-		long timestamp = System.currentTimeMillis();
+		// tempFile.setInt("A", input.getInt("A"));
+		// tempFile.setInt("B", input.getInt("B"));
+		//tempRecordSize++;
+	/*System.out.println(" " + tempRecordSize + "." + "kayýt tempFile'da");*/
+		for (String tempField : getSkylineDimensions()) {
+			// System.out.println(tempField);
 
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
+			tempFile.setInt(tempField, input.getInt(tempField));
+			/*System.out.print(" " + tempFile.getInt(tempField));*/
+		}
 
-		timeOfTempRecord.put(tmpRID, timestamp);
-		tempRecordSize++;
-		System.out.println("inputdan tempFile'a");
-		System.out.print(" " + tempFile.getInt("A"));
-		System.out.print(" " + tempFile.getInt("B"));
-		System.out.print(" " + timestamp );
-		System.out.println(" " + tempRecordSize + "." + "kayýt tempFile'da");
+		/*System.out.println(" ");*/
+		// System.out.println("inputdan tempFile'a");
+		// System.out.print(" " + tempFile.getInt("A"));
+		// System.out.print(" " + tempFile.getInt("B"));
+		// System.out.print(" " + timestamp );
+
 	}
 
 	/*
@@ -177,183 +134,21 @@ public class SkylineFinder {
 		return (inputDominationMap.containsValue(input.currentRid()) ? true : false);
 	}
 
-	public boolean anyDominationByTemp() {
-		return (tempDominationMap.containsValue(tempFile.getRid()) ? true : false);
-	}
+	public WindowUpdateScan findSkyline(HashSet<RID> replaceInWindow) {
 
-	/*
-	 * input'daki deðer windowdaki deðeri domine ediyorsa 1, input'daki deðer
-	 * domine oluyorsa -1, ikisi de domine edilemiyorsa 0 döner.
-	 */
-	public int compareDomination4Temp() {
-		if (tempFile.getInt("A") < window.getInt("A")) {
-			if (tempFile.getInt("B") <= window.getInt("B")) {
-				// setTempDominationMap();
-				return 1;// tempFile elemaný windowdakini domine etti.
-			} else
-				return 0;// inputdaki ve windowdaki eleman birbirini domine
-							// edemedi.
-		} else {
-			if (tempFile.getInt("A") > window.getInt("A")) {
-				if (tempFile.getInt("B") >= window.getInt("B"))
-					return -1;// tempFiledaki eleman domine edildi.
-				else
-					return 0;
-			} else {
-				if (tempFile.getInt("B") > window.getInt("B"))
-					return -1;
-				else {
-					if (tempFile.getInt("B") < window.getInt("B")) {
-						//setTempDominationMap();
-						return 1;
-					}
-
-					else
-						return 0;
+		window.beforeFirst();
+		while (window.next()) {
+			if (replaceInWindow == null || !replaceInWindow.contains(window.getRid())) {
+				for (String tempField : getSkylineDimensions()) {
+					skylinePoints.add(window.getInt(tempField));
 				}
+
+				// skylinePoints.add(window.getInt("B"));
+				window.delete();
 			}
-		}
-
-	}
-
-	/*
-	 * tempFile'daki deðer daha önce yazýlmýþsa 1, windowdaki sonra yazýlmýþsa 0
-	 * döner.
-	 */
-	// ---1
-	public int compareRecordTime() {
-		RID key1 = null;
-		RID key2 = null;
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
-
-		id = window.getRid().id();
-		blkNo = window.getRid().blockNumber();
-		windRID = new RID(blkNo, id);
-
-		for (RID rid : timeOfRecord.keySet()) {
-			if (rid.equals(windRID)) {
-				key1 = rid;
-				break;
-			}
-		}
-
-		for (RID rid : timeOfTempRecord.keySet()) {
-			if (rid.equals(tmpRID)) {
-				key2 = rid;
-				break;
-			}
-		}
-		
-
-		if (timeOfRecord.get(key1) >= timeOfTempRecord.get(key2))
-			return 1;
-		else
-			return 0;
-
-	}
-
-	public void markTempElementAsDominated() {
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
-
-		dominatedElementsOfTemp.add(tmpRID);
-	}
-
-	public void markTempElementAsSkyline(RID tempRID) {
-		skylineElementsOfTemp.add(tempRID);
-	}
-
-	// --3 contains metodu farklý objelerin deðerlerini RID equals metoduna göre
-	// karþýlaþtýracaðýndan sorun yok.
-	public boolean isTempElementComparedBefore() {
-		RID key2 = null;
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
-
-		for (RID rid : timeOfTempRecord.keySet()) {
-			if (rid.equals(tmpRID)) {
-				key2 = rid;
-				break;
-			}
-		}
-		if ((key2 == null) || (dominatedElementsOfTemp.contains(tempFile.getRid())
-				|| skylineElementsOfTemp.contains(tempFile.getRid())))
-
-			return true;
-
-		else
-			return false;
-	}
-
-	public boolean isEndOfTempIterarion() {
-		if ((timeOfTempRecord.isEmpty() && timeOfRecord.isEmpty()))
-			return true;
-		else
-			return false;
-	}
-
-	/*
-	 * Temp elemaný window'daki deðerleri ne domine edebildi ne de domine edildi
-	 * ise true döner.
-	 */
-	public boolean isTempElementNotComparable() {
-		RID key = null;
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
-
-		for (RID rid : timeOfTempRecord.keySet()) {
-			if (rid.equals(tmpRID)) {
-				key = rid;
-				break;
-			}
-		}
-		if (key != null) {
-			if (!dominatedElementsOfTemp.contains(tempFile.getRid())
-					&& !tempDominationMap.containsValue(tempFile.getRid()))
-				return true;
-			else
-				return false;
-		} else
-			return false;
-	}
-
-	// --2
-	public boolean findSkyline(long startOfTempIteration) {
-		RID key = null;
-
-		id = window.getRid().id();
-		blkNo = window.getRid().blockNumber();
-		windRID = new RID(blkNo, id);
-
-		for (RID rid : timeOfRecord.keySet()) {
-			if (rid.equals(windRID)) {
-				key = rid;
-				break;
-			}
-		}
-
-		if (timeOfRecord.get(key) <= startOfTempIteration) {
-			// window.moveToRid(windRID);
-			skylinePoints.add(window.getInt("A"));
-			// System.out.println("djdj");
-			System.out.print(" " + window.getInt("A"));
-			skylinePoints.add(window.getInt("B"));
-			System.out.println(" " + window.getInt("B"));
-			if (tempDominationMap.containsKey(key)){
-				markTempElementAsSkyline(tempDominationMap.get(key));
-				removeTimeOfTempRecord();
-			}
-			return true;
 
 		}
-
-		else
-			return false;
+		return window;
 	}
 
 	public void setTempFile(TableScan temp) {
@@ -368,46 +163,78 @@ public class SkylineFinder {
 		this.input = inp;
 	}
 
-	public void setTempDominationMap() {
+	/*
+	 * inputDominationMap bir inputa ait domine etme bilgisi taþýr.Bu nedenle
+	 * her yeni input için sýfýrlanmasý gerekir.
+	 */
+	public void clearInputDominationMap() {
+		inputDominationMap.clear();
+	}
+
+	/* windowu selforganizer olarak yeniden düzenler. */
+	public HashSet<RID> selfOrganizer(HashSet<RID> replacedInWindow) {
 		id = window.getRid().id();
 		blkNo = window.getRid().blockNumber();
-		windRID = new RID(blkNo, id);
+		int tmpValues = 0;
+		int tmpValues1 = 0;
 
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		tmpRID = new RID(blkNo, id);
+		// String tempField = new int[skylineDimensions];
+		if (id != 0 || blkNo != 0) {
+			System.out.println("window organize ediliyor");
+			if (replacedInWindow != null) {
+				if (replacedInWindow.contains(new RID(0, 0))) {
+					if (!replacedInWindow.contains(new RID(blkNo, id))) {
+						replacedInWindow.remove(new RID(0, 0));
+						replacedInWindow.add(new RID(blkNo, id));
+					}
 
-		tempDominationMap.put(windRID, tmpRID);
-	}
-
-	public void removeTimeRecord() {
-		id = window.getRid().id();
-		blkNo = window.getRid().blockNumber();
-		removeTimeRecord(new RID(blkNo, id));
-	}
-
-	private void removeTimeRecord(RID windRID) {
-		for (RID rid : timeOfRecord.keySet()) {
-			if (rid.equals(windRID)) {
-				timeOfRecord.remove(rid, timeOfRecord.get(rid));
-				break;
+				} else {
+					if (replacedInWindow.contains(new RID(blkNo, id))) {
+						replacedInWindow.remove(new RID(blkNo, id));
+						replacedInWindow.add(new RID(0, 0));
+					}
+				}
 			}
-		}
-	}
+			window.beforeFirst();
+			window.next();
+			
+			if(window.getRid().equals(new RID(0,0))){//windowun 0.blok 0.slotu boþ deðil demektir.
+				for (String tempField : getSkylineDimensions()) {
 
-	public void removeTimeOfTempRecord() {
-		id = tempFile.getRid().id();
-		blkNo = tempFile.getRid().blockNumber();
-		removeTimeOfTempRecord(new RID(blkNo, id));
-	}
-
-	private void removeTimeOfTempRecord(RID tmpRID) {
-		for (RID rid : timeOfTempRecord.keySet()) {
-			if (rid.equals(tmpRID)) {
-				timeOfTempRecord.remove(rid, timeOfTempRecord.get(rid));
-				break;
+//					tmpValues = window.getInt(tempField);//0.b 1.slot deðeri
+//					window.moveToRid(new RID(0, 0));
+//					tmpValues1 = window.getInt(tempField);//0-0 dðri
+//					window.setInt(tempField, tmpValues);
+//
+//					window.moveToRid(new RID(blkNo, id));
+//					window.setInt(tempField, tmpValues1);
+					tmpValues1 = window.getInt(tempField);
+					window.moveToRid(new RID(blkNo, id));
+					tmpValues = window.getInt(tempField);
+					window.setInt(tempField, tmpValues1);//0.b-1.s ye 0-0 deðeri atandý.
+					window.moveToRid(new RID(0, 0));
+					window.setInt(tempField, tmpValues);//0.b-0.s a 0-1 deðeri atandý.
+				}
 			}
-		}
-	}
+			else{//0-0 boþ demektir.
+				
+//				window.beforeFirst();
+//				window.insert();
+				for (String tempField : getSkylineDimensions()){
+					window.moveToRid(new RID(blkNo, id));
+					tmpValues = window.getInt(tempField);
+					window.moveToRid(new RID(0, 0));
+					window.setInt(tempField, tmpValues);
+				//window.moveToRid(new RID(blkNo, id));
+				
+				}
+				window.insert();//0-0 INUSE yapýldý.
+				window.moveToRid(new RID(blkNo, id));
+				window.delete();//0-1 EMPTY yapýldý.
+			}
+			
 
+		}
+		return replacedInWindow;
+	}
 }

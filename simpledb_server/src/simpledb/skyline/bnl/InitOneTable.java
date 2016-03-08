@@ -1,5 +1,6 @@
 package simpledb.skyline.bnl;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -11,15 +12,25 @@ import simpledb.server.SimpleDB;
 import simpledb.tx.Transaction;
 
 public class InitOneTable {
-	public static int numberOfTuples = 300;
-	
+	public static int numberOfTuples = 2000;
 
-	public static int[][] allTuples = new int[numberOfTuples][2];
-	public static int[][] skylineTuples = new int[1][2];
+	public ArrayList<String> skylineFields = new ArrayList<>();
+	public static int[][] allTuples;
+	public static int[][] skylineTuples;
 	public static int[][] temp;
-	//public static int[][] hazirDizi = {{77 ,95},{97 ,42},{1 ,77},{72 ,49},{81 ,14},{39 ,46},{96 ,22},{64 ,42},{64 ,55},{52 ,9},{50 ,35},{20 ,8}}; 
+	private int upsize;
 
-	public static void initData(String dbdir) {
+	// public static int[][] hazirDizi = {{77 ,95},{97 ,42},{1 ,77},{72 ,49},{81
+	// ,14},{39 ,46},{96 ,22},{64 ,42},{64 ,55},{52 ,9},{50 ,35},{20 ,8}};
+	public void setSkylineFiels(String skyField) {
+		skylineFields.add(skyField);
+	}
+
+	public ArrayList<String> getSkylineFields() {
+		return skylineFields;
+	}
+
+	public void initData(String dbdir) {
 		System.out.println("BEGIN INITIALIZATION");
 		SimpleDB.init(dbdir);
 		if (SimpleDB.fileMgr().isNew()) {
@@ -44,6 +55,7 @@ public class InitOneTable {
 			while (rf.next())
 				rf.delete();
 			rf.beforeFirst();
+			allTuples = new int[numberOfTuples][getSkylineFields().size()];
 			for (int id = 0; id < numberOfTuples; id++) {
 				rf.insert();
 				Random _rgen = new Random();
@@ -53,77 +65,138 @@ public class InitOneTable {
 					// System.out.println("field name:" +  );
 					int fieldVal = _rgen.nextInt(200);
 					rf.setInt(String.valueOf((char)(i + 65)), fieldVal);
-					if(i < 2)
-						allTuples[id][i] = fieldVal;
+//					if(i < getSkylineFields().size())
+//						allTuples[id][i] = fieldVal;
+//						System.out.print(" " + allTuples[id][i]);
 					}
-//				int _A = _rgen.nextInt(100);
-//			//	int _A = hazirDizi[id][0];
-//				System.out.print(" " + _A);
-//				rf.setInt("A", _A);
-//				allTuples[id][0] = _A;
-//				int _B = _rgen.nextInt(100);
-//			//	int _B = hazirDizi[id][1];
-//				System.out.println(" " + _B);
-//				rf.setInt("B", _B);
-//				allTuples[id][1] = _B;
-			}
 
+			}
+			int a = 0;
+			int b = 0;
+			//allTuples = new int[numberOfTuples][getSkylineFields().size()];
+			rf.beforeFirst();
+			while (rf.next()){
+				b = 0;
+				for (String tempField : getSkylineFields()) {
+					//System.out.println(tempField);
+					allTuples[a][b] = rf.getInt(tempField);
+					b++;
+				}
+				a++;
+			}
 			rf.close();
 			// for(int i = 0; i < numberOfTuples; i++){
 			// skylineTuples[i][0] = 0;
 			// }
-			skylineTuples[0][0] = allTuples[0][0];
-			skylineTuples[0][1] = allTuples[0][1];
+		
+			dummy();
+			rf.close();
+			tx.commit();
+			tx = new Transaction();
+			tx.recover(); // add a checkpoint record, to limit rollback
+		}
+		else{
+			MetadataMgr md1 = SimpleDB.mdMgr();
+			Transaction tx1 = new Transaction();
+			TableInfo ti1 = md1.getTableInfo("input", tx1);
 
-			for (int i = 1; i < numberOfTuples; i++) {
-				int countOfAllTupleDominate = 0;/*
-												 * alltuple'daki deðer,
-												 * skylinetuple'daki deðeri
-												 * domine etmiþse sýfýrdan
-												 * farklý,birt kere dahi domine
-												 * etmesi yeterli
-												 */
-				int j = 0;
-				while (j < skylineTuples.length) {
-					if (allTuples[i][0] < skylineTuples[j][0]) {
-						if (allTuples[i][1] <= skylineTuples[j][1]) {
-							// inputDominationMap.put(window, input);
-							if (countOfAllTupleDominate == 0) {
-								skylineTuples[j][0] = allTuples[i][0];
-								skylineTuples[j][1] = allTuples[i][1];
-								countOfAllTupleDominate++;
-								j++;
-							}
+			RecordFile rf1 = new RecordFile(ti1, tx1);
+			int a = 0;
+			int b = 0;
+			allTuples = new int[numberOfTuples][getSkylineFields().size()];
+			while (rf1.next()){
+				b = 0;
+				for (String tempField : getSkylineFields()) {
+					//System.out.println(tempField);
+					allTuples[a][b] = rf1.getInt(tempField);
+					b++;
+				}
+				a++;
+			}
+			dummy();
+			rf1.close();
+			tx1.commit();
+			tx1 = new Transaction();
+			tx1.recover(); // add a checkpoint record, to limit rollback
 
-							else {/*
-									 * mevcut allTuple deðeri daha önce
-									 * skylineda bir deðeri domine etti bu sefer
-									 * bir baþka deðeri daha domine etti.Bu
-									 * nedenle allTuple deðerinin domine ettiði
-									 * ilk deðer dýþýndaki skyline deðerleri
-									 * listeden silinmeli.
-									 */
-								temp = skylineTuples;
-								skylineTuples = new int[temp.length - 1][2];
-								for (int k = 0; k < j; k++) {
-									skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
-								}
-								for (int k = j; k < temp.length - 1; k++) {
-									skylineTuples[k] = Arrays.copyOf(temp[k + 1], temp[k + 1].length);
-								}
-							}
+		}
+	}
+	public void dummy(){
+		skylineTuples = new int[1][getSkylineFields().size()];
+		for(int i = 0; i < getSkylineFields().size(); i++){
+			skylineTuples[0][i] = allTuples[0][i];
+		//	skylineTuples[0][1] = allTuples[0][1];
+			/*System.out.print("" + i + "." +"kayÄ±t:" + allTuples[0][i] + " ");*/
+			//System.out.println(allTuples[i][1]);
+		}
+		/*System.out.println();*/
 
-						} else {
+		for (int i = 1; i < numberOfTuples; i++) {
+			int countOfAllTupleDominate = 0;/*
+											 * alltuple'daki deÄŸer,
+											 * skylinetuple'daki deÄŸeri
+											 * domine etmiÅŸse sÄ±fÄ±rdan
+											 * farklÄ±,bir kere dahi domine
+											 * etmesi yeterli
+											 */
+			int j = 0;
+			/*System.out.println();
+			System.out.print("" + i + "." +"kayÄ±t:" + allTuples[i][0] + " ");
+			System.out.println(allTuples[i][1]);*/
+			while (j < skylineTuples.length) {
+				//if (allTuples[i][0] < skylineTuples[j][0]) {
+				//	if (allTuples[i][1] <= skylineTuples[j][1]) {
+						// inputDominationMap.put(window, input);
+				/*System.out.println();
+				System.out.print("" + j + "." +"skyline kayÄ±t:" + skylineTuples[j][0] + " ");
+				System.out.println(skylineTuples[j][1]);*/
+				if(compareDomination4Input(allTuples, skylineTuples, i, j) == 1 ){
+					if (countOfAllTupleDominate == 0) {
+						for (int a = 0; a < getSkylineFields().size(); a++){
+							skylineTuples[j][a] = allTuples[i][a];
+						}
+						countOfAllTupleDominate++;
+						j++;
+					}
+
+					else {/*
+							 * mevcut allTuple deÄŸeri daha Ã¶nce
+							 * skylineda bir deÄŸeri domine etti bu sefer
+							 * bir baÅŸka deÄŸeri daha domine etti.Bu
+							 * nedenle allTuple deÄŸerinin domine ettiÄŸi
+							 * ilk deÄŸer dÄ±ÅŸÄ±ndaki skyline deÄŸerleri
+							 * listeden silinmeli.
+							 */
+						temp = skylineTuples;
+						skylineTuples = new int[temp.length - 1][getSkylineFields().size()];
+						for (int k = 0; k < j; k++) {
+							skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+						}
+						for (int k = j; k < temp.length - 1; k++) {
+							skylineTuples[k] = Arrays.copyOf(temp[k + 1], temp[k + 1].length);
+						}
+					}
+
+				}
+				
+				else {
+					   if (compareDomination4Input(allTuples, skylineTuples, i, j) == -1) 
+						//if (allTuples[i][1] >= skylineTuples[j][1])
+							break;// allTuple'daki deÄŸer domine edildi.
+						else {// alltuple'daki mevcut deÄŸer ve skylinedaki
+								// bÃ¼tÃ¼n deÄŸerler birbirini domine edemedi
+//							
 							if(j == (skylineTuples.length - 1)){
 								if(countOfAllTupleDominate == 0){
 									temp = skylineTuples;
-									skylineTuples = new int[temp.length +1][2];
+									skylineTuples = new int[temp.length +1][getSkylineFields().size()];
 									for (int k = 0; k < temp.length; k++) {
 										skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
 									}
 									//temp.length == j + 1
-									skylineTuples[temp.length][0] = allTuples[i][0];
-									skylineTuples[temp.length][1] = allTuples[i][1];
+									for (int a = 0; a < getSkylineFields().size(); a++){
+										skylineTuples[temp.length][a] = allTuples[i][a];
+									}
 									// skylineTuples.length++;
 									j = j + 2;
 								}
@@ -135,15 +208,101 @@ public class InitOneTable {
 
 							}
 						}
-					} else {
-						if (allTuples[i][0] > skylineTuples[j][0]) {
-							if (allTuples[i][1] >= skylineTuples[j][1])
-								break;// allTuple'daki deðer domine edildi.
-							else {// alltuple'daki mevcut deðer ve skylinedaki
-									// bütün deðerler birbirini domine edemedi
-//								if (countOfAllTupleDominate == 0 && j == (skylineTuples.length - 1)) {
+					
+
+							
+				}
+			}
+
+//		
+	
+//		skylineTuples = new int[1][getSkylineFields().size()];
+//		skylineTuples[0][0] = allTuples[0][0];
+//		skylineTuples[0][1] = allTuples[0][1];
+//
+//		for (int i = 1; i < numberOfTuples; i++) {
+//			int countOfAllTupleDominate = 0;/*
+//											 * alltuple'daki deÃ°er,
+//											 * skylinetuple'daki deÃ°eri
+//											 * domine etmiÃ¾se sÃ½fÃ½rdan
+//											 * farklÃ½,birt kere dahi domine
+//											 * etmesi yeterli
+//											 */
+//			int j = 0;
+//			while (j < skylineTuples.length) {
+//				if (allTuples[i][0] < skylineTuples[j][0]) {
+//					if (allTuples[i][1] <= skylineTuples[j][1]) {
+//						// inputDominationMap.put(window, input);
+//						if (countOfAllTupleDominate == 0) {
+//							skylineTuples[j][0] = allTuples[i][0];
+//							skylineTuples[j][1] = allTuples[i][1];
+//							countOfAllTupleDominate++;
+//							j++;
+//						}
+//
+//						else {/*
+//								 * mevcut allTuple deÃ°eri daha Ã¶nce
+//								 * skylineda bir deÃ°eri domine etti bu sefer
+//								 * bir baÃ¾ka deÃ°eri daha domine etti.Bu
+//								 * nedenle allTuple deÃ°erinin domine ettiÃ°i
+//								 * ilk deÃ°er dÃ½Ã¾Ã½ndaki skyline deÃ°erleri
+//								 * listeden silinmeli.
+//								 */
+//							temp = skylineTuples;
+//							skylineTuples = new int[temp.length - 1][2];
+//							for (int k = 0; k < j; k++) {
+//								skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+//							}
+//							for (int k = j; k < temp.length - 1; k++) {
+//								skylineTuples[k] = Arrays.copyOf(temp[k + 1], temp[k + 1].length);
+//							}
+//						}
+//
+//					} else {
+//						if(j == (skylineTuples.length - 1)){
+//							if(countOfAllTupleDominate == 0){
+//								temp = skylineTuples;
+//								skylineTuples = new int[temp.length +1][2];
+//								for (int k = 0; k < temp.length; k++) {
+//									skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+//								}
+//								//temp.length == j + 1
+//								skylineTuples[temp.length][0] = allTuples[i][0];
+//								skylineTuples[temp.length][1] = allTuples[i][1];
+//								// skylineTuples.length++;
+//								j = j + 2;
+//							}
+//							else
+//								j++;
+//						}
+//						else  {
+//							j++;
+//
+//						}
+//					}
+//				} else {
+//					if (allTuples[i][0] > skylineTuples[j][0]) {
+//						if (allTuples[i][1] >= skylineTuples[j][1])
+//							break;// allTuple'daki deÃ°er domine edildi.
+//						else {// alltuple'daki mevcut deÃ°er ve skylinedaki
+//								// bÃ¼tÃ¼n deÃ°erler birbirini domine edemedi
+////							if (countOfAllTupleDominate == 0 && j == (skylineTuples.length - 1)) {
+////								temp = skylineTuples;
+////								skylineTuples = new int[temp.length + 1][2];
+////								for (int k = 0; k < temp.length; k++) {
+////									skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+////								}
+////								//temp.length == j + 1
+////								skylineTuples[temp.length][0] = allTuples[i][0];
+////								skylineTuples[temp.length][1] = allTuples[i][1];
+////								// skylineTuples.length++;
+////								j = j + 2;
+////
+////							}
+//							if(j == (skylineTuples.length - 1)){
+//								if(countOfAllTupleDominate == 0){
 //									temp = skylineTuples;
-//									skylineTuples = new int[temp.length + 1][2];
+//									skylineTuples = new int[temp.length +1][2];
 //									for (int k = 0; k < temp.length; k++) {
 //										skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
 //									}
@@ -152,107 +311,129 @@ public class InitOneTable {
 //									skylineTuples[temp.length][1] = allTuples[i][1];
 //									// skylineTuples.length++;
 //									j = j + 2;
-//
 //								}
-								if(j == (skylineTuples.length - 1)){
-									if(countOfAllTupleDominate == 0){
-										temp = skylineTuples;
-										skylineTuples = new int[temp.length +1][2];
-										for (int k = 0; k < temp.length; k++) {
-											skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
-										}
-										//temp.length == j + 1
-										skylineTuples[temp.length][0] = allTuples[i][0];
-										skylineTuples[temp.length][1] = allTuples[i][1];
-										// skylineTuples.length++;
-										j = j + 2;
-									}
-									else
-										j++;
-								}
-								else  {
-									j++;
-
-								}
-							}
-						} else {
-							if (allTuples[i][1] > skylineTuples[j][1])
-								break;// allTuple'daki deðer domine edildi.
-							else {
-								if (allTuples[i][1] < skylineTuples[j][1]) {
-									// inputDominationMap.put(window, input);
-									if (countOfAllTupleDominate == 0) {
-										skylineTuples[j][0] = allTuples[i][0];
-										skylineTuples[j][1] = allTuples[i][1];
-										countOfAllTupleDominate++;
-										j++;
-									} else {/*
-											 * mevcut allTuple deðeri daha önce
-											 * skylineda bir deðeri domine etti
-											 * bu sefer bir baþka deðeri daha
-											 * domine etti.Bu nedenle allTuple
-											 * deðerinin domine ettiði ilk deðer
-											 * dýþýndaki skyline deðerleri
-											 * listeden silinmeli.
-											 */
-										temp = skylineTuples;
-										skylineTuples = new int[temp.length - 1][2];
-										for (int k = 0; k < j; k++) {
-											skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
-										}
-										for (int k = j; k < temp.length - 1; k++) {
-											skylineTuples[k] = Arrays.copyOf(temp[k + 1], temp[k + 1].length);
-										}
-									}
-								}
-
-								else {
-//									if (countOfAllTupleDominate == 0 && j == (skylineTuples.length - 1)) {
+//								else
+//									j++;
+//							}
+//							else  {
+//								j++;
+//
+//							}
+//						}
+//					} else {
+//						if (allTuples[i][1] > skylineTuples[j][1])
+//							break;// allTuple'daki deÃ°er domine edildi.
+//						else {
+//							if (allTuples[i][1] < skylineTuples[j][1]) {
+//								// inputDominationMap.put(window, input);
+//								if (countOfAllTupleDominate == 0) {
+//									skylineTuples[j][0] = allTuples[i][0];
+//									skylineTuples[j][1] = allTuples[i][1];
+//									countOfAllTupleDominate++;
+//									j++;
+//								} else {/*
+//										 * mevcut allTuple deÃ°eri daha Ã¶nce
+//										 * skylineda bir deÃ°eri domine etti
+//										 * bu sefer bir baÃ¾ka deÃ°eri daha
+//										 * domine etti.Bu nedenle allTuple
+//										 * deÃ°erinin domine ettiÃ°i ilk deÃ°er
+//										 * dÃ½Ã¾Ã½ndaki skyline deÃ°erleri
+//										 * listeden silinmeli.
+//										 */
+//									temp = skylineTuples;
+//									skylineTuples = new int[temp.length - 1][2];
+//									for (int k = 0; k < j; k++) {
+//										skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+//									}
+//									for (int k = j; k < temp.length - 1; k++) {
+//										skylineTuples[k] = Arrays.copyOf(temp[k + 1], temp[k + 1].length);
+//									}
+//								}
+//							}
+//
+//							else {
+////								if (countOfAllTupleDominate == 0 && j == (skylineTuples.length - 1)) {
+////									temp = skylineTuples;
+////									skylineTuples = new int[temp.length + 1][2];
+////									for (int k = 0; k < temp.length; k++) {
+////										skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
+////									}
+////									//temp.length == j + 1
+////									skylineTuples[temp.length][0] = allTuples[i][0];
+////									skylineTuples[temp.length][1] = allTuples[i][1];
+////									j = j + 2;
+////								}
+//								if(j == (skylineTuples.length - 1)){
+//									if(countOfAllTupleDominate == 0){
 //										temp = skylineTuples;
-//										skylineTuples = new int[temp.length + 1][2];
+//										skylineTuples = new int[temp.length +1][2];
 //										for (int k = 0; k < temp.length; k++) {
 //											skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
 //										}
 //										//temp.length == j + 1
 //										skylineTuples[temp.length][0] = allTuples[i][0];
 //										skylineTuples[temp.length][1] = allTuples[i][1];
+//										// skylineTuples.length++;
 //										j = j + 2;
 //									}
-									if(j == (skylineTuples.length - 1)){
-										if(countOfAllTupleDominate == 0){
-											temp = skylineTuples;
-											skylineTuples = new int[temp.length +1][2];
-											for (int k = 0; k < temp.length; k++) {
-												skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
-											}
-											//temp.length == j + 1
-											skylineTuples[temp.length][0] = allTuples[i][0];
-											skylineTuples[temp.length][1] = allTuples[i][1];
-											// skylineTuples.length++;
-											j = j + 2;
-										}
-										else
-											j++;
-									}
-									else  {
-										j++;
+//									else
+//										j++;
+//								}
+//								else  {
+//									j++;
+//
+//								}
+//							}
+//						}
+//					}
+//				}
+//			}
+//
+//		}
+		
+		}	
+		System.out.println("olmasÃ½ gereken skyline:");
+		System.out.println("" + skylineTuples.length + " adet");
+		for(int[] mtr : skylineTuples){
+			for(int h = 0; h<getSkylineFields().size(); h++){
+				System.out.print(" " + mtr[h] + " ");
+			}
+			System.out.println(" ");
+		}
+}
+	public int compareDomination4Input(int m1[][], int m2[][], int a, int b) {
 
-									}
-								}
-							}
-						}
-					}
+		int k = 0;
+		upsize = getSkylineFields().size();
+		for (int i = 0; i < getSkylineFields().size(); i++) {
+			k += deepCompare(m1[a][i], m2[b][i]);
+		}
+		if ((upsize != 0) && k == upsize)
+			return 1;
+		else {
+			if ((upsize != 0) && k == -upsize)
+				return -1;
+			else
+				return 0;
+		}
+
+	}
+
+	public int deepCompare(Object x, Object y) {
+		int m = -2;
+		if (x instanceof Integer && y instanceof Integer) {
+			if ((int) x < (int) y)
+				m = 1;
+			else {
+				if ((int) x > (int) y)
+					m = -1;
+				else {
+					upsize--;
+					m = 0;
 				}
 
 			}
-			System.out.println("olmasý gereken skyline:");
-			System.out.println("" + skylineTuples.length + " adet");
-			for(int[] mtr : skylineTuples)
-				System.out.println(" " + mtr[0] + " " + mtr[1]);
-			rf.close();
-			tx.commit();
-			tx = new Transaction();
-			tx.recover(); // add a checkpoint record, to limit rollback
 		}
+		return m;
 	}
 }
