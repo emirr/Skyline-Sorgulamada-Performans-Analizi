@@ -1,5 +1,9 @@
 package simpledb.skyline.bnl;
 
+import java.util.ArrayList;
+//import java.util.ArrayList;
+import java.util.HashSet;
+
 import simpledb.materialize.TempTable;
 import simpledb.metadata.MetadataMgr;
 import simpledb.multibuffer.WindowUpdateScan;
@@ -11,6 +15,7 @@ import simpledb.server.SimpleDB;
 import simpledb.tx.Transaction;
 
 public class BufferArranger {
+	private String typeOfBnl;
 	Transaction tx = new Transaction();
 	MetadataMgr md = SimpleDB.mdMgr();
 
@@ -24,45 +29,94 @@ public class BufferArranger {
 
 	/* window alaný oluþturulur */
 	TableInfo tiWindow = new TableInfo("tempWindowFile", ti.schema());
-	WindowUpdateScan window = new WindowUpdateScan(tiWindow, 0, 0, tx);
+	WindowUpdateScan window = new WindowUpdateScan(tiWindow, 0, 4, tx);
 
 	/* output alaný oluþturulur. */
 	TempTable temp = new TempTable(ti.schema(), tx);
 	TableScan tempfile = (TableScan) temp.open();
-
-	SkylineFinder skyline = new SkylineFinder();
+	private ArrayList<String> skylineBoyut;
 	int z = 0;
-	static int[][] allOfTuples = new int[InitOneTable.numberOfTuples][2];
+	int i = 0;// tempfile iterasyon sayýsý
+	int l = 0;
+	SkylineFinder skyline;
+	// static int[][] allOfTuples = new int[InitOneTable.numberOfTuples][2];
+	private HashSet<RID> replacedInwindow;// tempFile'a her ilk kayýt
+											// giriþinden itibaren obje
+											// oluþturulur.input iterasyonu
+											// sýrasýnda domine edilme durumu
+											// olursa dominenin gerçekleþtiði
+											// RID
+											// listeye eklenir.input iterasyonu
+											// sonunda bu listede olmayan ve
+											// dolu olan tüm window RID'ler
+											// skyline'dir.
+	BufferArranger(String type, ArrayList<String> skylineBoyutu){
+		this.typeOfBnl = type;
+		this.skylineBoyut = skylineBoyutu;
+		skyline = new SkylineFinder(skylineBoyut);
+	}
+	
 
+	public String getTypeOfBnl(){
+		return typeOfBnl;
+	}
+	public ArrayList<String> getSkylineBoyut(){
+		return skylineBoyut;
+	}
 	// inputdaki deðerler domine durumlarýna göre windowa,windowda yer yoksa
 	// tempFile'a yerleþtirilir
 	public void inputToWindow() {
 		while (input.next()) {
-
-			// System.out.println("" + z +"." + " kayýt");
-			allOfTuples[z][0] = input.getInt("A");
-			allOfTuples[z][1] = input.getInt("B");
-			System.out.print("" + input.getInt("A") + " ");
-			System.out.print("" + input.getInt("B") + " ");
-			System.out.println("" + z + "." + " kayýt okundu");
-			z++;
+			/*inputDominationMap bir inputa ait domine etme bilgisi taþýr.Bu nedenle
+			 * her yeni input için sýfýrlanmasý gerekir.*/
+			skyline.clearInputDominationMap();
+			
+			/*System.out.println("" + l + "." + " kayýt");*/
+			
+			// allOfTuples[z][0] = input.getInt("A");
+			// allOfTuples[z][1] = input.getInt("B");
+			
+			/*for (String tempField : getSkylineBoyut()) {
+				//System.out.println(tempField);
+			//	window.setInt(tempField, input.getInt(tempField));
+				
+				System.out.print(" " + input.getInt(tempField));
+				
+			}*/
+			/*System.out.println();*/
+			
+			// System.out.println("" + z + "." + " kayýt okundu");
+			/*l++;*/
 			int inputIsDominatedFlag = 0;
 			skyline.setInput(input);
 			// if (input.next()) {
 			// inputdaki ilk bloðun ilk kaydý doðrudan windowa
 			// yerleþtirilsin
-			if (input.currentRid().equals(new RID(0, 0))) {
-				window.insert();
-				skyline.setWindow(window);
-				skyline.putRecordToWindow();
-				input.next();
-				allOfTuples[z][0] = input.getInt("A");
-				allOfTuples[z][1] = input.getInt("B");
-				System.out.print("" + input.getInt("A") + " ");
-				System.out.print("" + input.getInt("B") + " ");
-				System.out.println("" + z + "." + " kayýt okundu");
-				z++;
-				skyline.setInput(input);
+			if (i == 0) {
+				if (input.currentRid().equals(new RID(0, 0))) {
+					window.insert();
+					skyline.setWindow(window);
+					skyline.putRecordToWindow();
+					input.next();
+					// allOfTuples[z][0] = input.getInt("A");
+					// allOfTuples[z][1] = input.getInt("B");
+					
+					/*System.out.println("" + l + "." + " kayýt");*/
+					/*for (String tempField : getSkylineBoyut()) {*/
+						//System.out.println(tempField);
+					//	window.setInt(tempField, input.getInt(tempField));
+						
+						/*System.out.print(" " + input.getInt(tempField));*/
+						
+					/*}*/
+					/*System.out.println();*/
+					/*System.out.print("" + input.getInt("A") + " ");
+					System.out.print("" + input.getInt("B") + " ");*/
+					
+					// System.out.println("" + z + "." + " kayýt okundu");
+					/*l++;*/
+					skyline.setInput(input);
+				}
 			}
 			window.beforeFirst();
 			while (window.next()) {
@@ -74,18 +128,25 @@ public class BufferArranger {
 					if (!skyline.anyDominationByInput()) {
 						skyline.setInputDominationMap();
 						skyline.putRecordToWindow();
+						if (z > 0)
+							replacedInwindow.add(window.getRid());
 					} else {
 						window.delete();
-						skyline.removeTimeRecord();
-						// skyline.setWindow(window);
 					}
 
 				} else {
 					if (skyline.compareDomination4Input() == -1) {
+						if(typeOfBnl.equals("self organize bnl")){
+							replacedInwindow = skyline.selfOrganizer(replacedInwindow);
+						}
 						inputIsDominatedFlag++;// eðer windowun en sonundaki
 												// deðer
 						// input deðerini domine ederse iþler karýþýr.bu dðþken
 						// buna önlme alýr.
+						if (i > 0)
+							input.delete();// domine edilen tempfile deðeri
+											// silindi.
+
 						break;// window içideki gezintiyi
 						// bitir ve
 						// sýradaki inputa geç.
@@ -110,130 +171,75 @@ public class BufferArranger {
 						skyline.setWindow(window);
 						// skyline.setInputDominationMap();
 						skyline.putRecordToWindow();
+						if (i > 0) 
+							input.delete();
+						if (z > 0)
+							replacedInwindow.add(window.getRid());
+						
+
 					} else {
+						// if()
+						z++;
 						putToTemp();
 					}
+				} else if (i > 0)
+					input.delete();
 
-				}
 			}
 		}
-
-		// readFromTemp(); input olarak temporaryFile'ý oku.
-		// }
 	}
 
 	// windowa sýðmayan ve olasý skyline noktalar tempfile'a aktarýldý.
 	public void putToTemp() {
-		tempfile.insert();
-		skyline.setTempFile(tempfile);
-		skyline.putRecordToTemp();
+		if (z == 1)
+			replacedInwindow = new HashSet<>();
+		if (i == 0) {
+			tempfile.insert();
+			skyline.setTempFile(tempfile);
+			skyline.putRecordToTemp();
+		}
 		// z++;
 		// System.out.println("" + z +"." + " kayýt");
 
 	}
 
 	public void readFromTemp() {
-		int i = 0;
-		long startTimeOfIteration;
-
-		/*
-		 * bir alt satýrdaki kodu eklemezsen tempFiel'ýn ilk elemaný windowla
-		 * karþýlaþtýrýlamaz.
-		 */
-
-		while (!skyline.isEndOfTempIterarion()) {
+		while (true) {
 			tempfile.beforeFirst();
-			skyline.setTempFile(tempfile);
-			startTimeOfIteration = System.currentTimeMillis();
-			i++;
-			System.out.println(" " + i + "." + " iteration" + " starts at:" + startTimeOfIteration);
-			while (tempfile.next()) {
-				skyline.setTempFile(tempfile);
-				// metod düzeltildi
-				if (!skyline.isTempElementComparedBefore()) {
-					window.beforeFirst();
-					skyline.setWindow(window);
-					while (window.next()) {
-						skyline.setWindow(window);
+			skyline.setWindow(window);
+			window = skyline.findSkyline(replacedInwindow);// windowun skyline
+															// içermeyen hali
+			if (replacedInwindow != null)
+				replacedInwindow.clear();// skyline elemanlar windowda olmadýðý
+											// için diðerlerinin
+			// sonradan eklenmiþ olduklarý bilgisini tutmaya gerek yok.
+			if (tempfile.next()) {
+				input.close();// input file'ýn pinlediði tampon havuzunun
+								// sýfýrýncý
+								// bloðu üzerindeki pin kaldýrýldý.
+				if (i == 0) {
 
-						/*
-						 * Eðer tempfile deðeri windeki deðerden daha önce
-						 * yazýlmýþsa domine durumlarýný karþýlaþtýr aksi halde
-						 * karþýlaþtýrma
-						 */
-						if (skyline.compareRecordTime() == 1) {
-							if (skyline.compareDomination4Temp() == 1) {
-								if (!skyline.anyDominationByTemp()) {
-									skyline.setTempDominationMap();
-									skyline.putTempToWindow();
-									// skyline.removeTimeOfTempRecord();
-
-								} else {
-									window.delete();
-									skyline.removeTimeRecord();
-
-									// skyline.setWindow(window);
-								}
-							} else {
-								if (skyline.compareDomination4Temp() == -1) {
-									skyline.markTempElementAsDominated();
-									skyline.removeTimeOfTempRecord();
-									break;/*
-											 * window içideki gezintiyi bitir ve
-											 * sýradaki inputa geç
-											 */
-								}
-							}
-
-						}
-
-					}
-					/* burayý silebilirsin */
-					if (skyline.anyDominationByTemp())
-						skyline.removeTimeOfTempRecord();
-
-					if (skyline.isTempElementNotComparable()) {
-						/*
-						 * eðer hala windowda yer varsa ve mevcut tempfile
-						 * deðeri hala windowdaki deðerler ile domine etme
-						 * durumunda deðilse bu temp deðerini windowa ekle.
-						 */
-						if (window.insert()) {
-							/*
-							 * window alanýný temp'e setler sonra da temp
-							 * alanýný windowa yazar.
-							 */
-							skyline.setWindow(window);
-							// skyline.setTempDominationMap();
-							skyline.putTempToWindow();
-							// --mod: removeTimeOfTemp
-							skyline.removeTimeOfTempRecord();
-						}
-
-					}
-
+					TableInfo ti2 = new TableInfo("temp1", ti.schema());
+					input = new RecordFile(ti2, tx);// sýfýrýncý blok yeniden
+													// pinlendi.Bu defa input,
+													// input.tbl yerine
+													// tempfile dosyasý için
+													// okuma
+													// yapar.
 				}
-			}
-			/* tempFile iterasyonu bitti skyline'ý belirle */
-			// else {
-			window.beforeFirst();
-			// skyline.setWindow(window);
-			while (window.next()) {
+
+				
+				skyline.setInput(input);
 				skyline.setWindow(window);
-				if (skyline.findSkyline(startTimeOfIteration)) {
-					window.delete();
-					skyline.removeTimeRecord();
-				}
-			}
-			// skyline.setWindow(window);
-			// if (!skyline.isEndOfTempIterarion()) {
-			// tempfile.beforeFirst();
-			// skyline.setTempFile(tempfile);
-			// startTimeOfIteration = System.currentTimeMillis();
-			// } else
-			// break;
-			//
-			// }
+
+				i++;
+				z = 0;
+				input.beforeFirst();
+				inputToWindow();
+
+			} else
+				break;
 		}
+
 	}
 }
