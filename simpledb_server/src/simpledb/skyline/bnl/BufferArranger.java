@@ -1,6 +1,7 @@
 package simpledb.skyline.bnl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 //import java.util.ArrayList;
 import java.util.HashSet;
 
@@ -16,6 +17,9 @@ import simpledb.tx.Transaction;
 
 public class BufferArranger {
 	private String typeOfBnl;
+	private String tempFileName;
+	//private int windowSize;
+	
 	Transaction tx = new Transaction();
 	MetadataMgr md = SimpleDB.mdMgr();
 
@@ -24,21 +28,32 @@ public class BufferArranger {
 	 * kullanýyor.
 	 */
 
-	TableInfo ti = md.getTableInfo("input", tx);
-	RecordFile input = new RecordFile(ti, tx);
+	TableInfo ti;
+	RecordFile input;
 
 	/* window alaný oluþturulur */
-	TableInfo tiWindow = new TableInfo("tempWindowFile", ti.schema());
-	WindowUpdateScan window = new WindowUpdateScan(tiWindow, 0, 4, tx);
+	TableInfo tiWindow;
+	WindowUpdateScan window;
 
 	/* output alaný oluþturulur. */
-	TempTable temp = new TempTable(ti.schema(), tx);
-	TableScan tempfile = (TableScan) temp.open();
+	TempTable temp;
+	TableScan tempfile;
+	
+	
 	private ArrayList<String> skylineBoyut;
+	public void setSkylineBoyut(ArrayList<String> skylineBoyut) {
+		this.skylineBoyut = skylineBoyut;
+		//skyline.setSkylineDimensions(skylineBoyut);
+	}
+
 	int z = 0;
 	int i = 0;// tempfile iterasyon sayýsý
 	int l = 0;
 	SkylineFinder skyline;
+	public SkylineFinder getSkyline() {
+		return skyline;
+	}
+
 	// static int[][] allOfTuples = new int[InitOneTable.numberOfTuples][2];
 	private HashSet<RID> replacedInwindow;// tempFile'a her ilk kayýt
 											// giriþinden itibaren obje
@@ -50,12 +65,29 @@ public class BufferArranger {
 											// sonunda bu listede olmayan ve
 											// dolu olan tüm window RID'ler
 											// skyline'dir.
-	BufferArranger(String type, ArrayList<String> skylineBoyutu){
+	BufferArranger(String type, ArrayList<String> skylineBoyutu, int windSize, String tableName, int clickCount){
 		this.typeOfBnl = type;
+		//this.windowSize = windSize;
 		this.skylineBoyut = skylineBoyutu;
 		skyline = new SkylineFinder(skylineBoyut);
+		//tx = new Transaction();
+		ti = md.getTableInfo(tableName, tx);
+		input = new RecordFile(ti, tx);
+		String windTblName;
+		if(clickCount == 0)
+			windTblName = "tempWindowFile";
+		else
+			windTblName = "tempWindowFile" + clickCount;
+		tiWindow = new TableInfo(windTblName, ti.schema());
+		window = new WindowUpdateScan(tiWindow, 0, windSize-1, tx);
+		temp = new TempTable(ti.schema(), tx);
+		tempFileName = temp.getTableInfo().fileName();
+		tempfile = (TableScan) temp.open();
 	}
 	
+
+	
+
 
 	public String getTypeOfBnl(){
 		return typeOfBnl;
@@ -71,22 +103,23 @@ public class BufferArranger {
 			 * her yeni input için sýfýrlanmasý gerekir.*/
 			skyline.clearInputDominationMap();
 			
-			/*System.out.println("" + l + "." + " kayýt");*/
+			//System.out.println("" + l + "." + " kayýt");
 			
 			// allOfTuples[z][0] = input.getInt("A");
 			// allOfTuples[z][1] = input.getInt("B");
 			
-			/*for (String tempField : getSkylineBoyut()) {
-				//System.out.println(tempField);
-			//	window.setInt(tempField, input.getInt(tempField));
-				
-				System.out.print(" " + input.getInt(tempField));
-				
-			}*/
-			/*System.out.println();*/
+//			for (String tempField : getSkylineBoyut()) {
+//				//System.out.println(tempField);
+//			//	window.setInt(tempField, input.getInt(tempField));
+//				
+//				System.out.print(" " + input.getInt(tempField));
+//				
+//			}
+//			System.out.println();
 			
 			// System.out.println("" + z + "." + " kayýt okundu");
-			/*l++;*/
+			//l++;
+			//long inputCarpanDegeri = 1;
 			int inputIsDominatedFlag = 0;
 			skyline.setInput(input);
 			// if (input.next()) {
@@ -97,24 +130,26 @@ public class BufferArranger {
 					window.insert();
 					skyline.setWindow(window);
 					skyline.putRecordToWindow();
+					if(typeOfBnl.equals("rplc win. bnl")){
+						skyline.performansCarpanHesapla();
+					}
 					input.next();
+					
+					
 					// allOfTuples[z][0] = input.getInt("A");
 					// allOfTuples[z][1] = input.getInt("B");
 					
-					/*System.out.println("" + l + "." + " kayýt");*/
-					/*for (String tempField : getSkylineBoyut()) {*/
-						//System.out.println(tempField);
-					//	window.setInt(tempField, input.getInt(tempField));
-						
-						/*System.out.print(" " + input.getInt(tempField));*/
-						
-					/*}*/
-					/*System.out.println();*/
-					/*System.out.print("" + input.getInt("A") + " ");
-					System.out.print("" + input.getInt("B") + " ");*/
-					
-					// System.out.println("" + z + "." + " kayýt okundu");
-					/*l++;*/
+//				System.out.println("" + l + "." + " kayýt");
+//					for (String tempField : getSkylineBoyut()) {
+//						//System.out.println(tempField);
+//					//	window.setInt(tempField, input.getInt(tempField));
+//						
+//						System.out.print(" " + input.getInt(tempField));
+//						
+//					}
+//					System.out.println();
+//					
+//					l++;
 					skyline.setInput(input);
 				}
 			}
@@ -128,6 +163,9 @@ public class BufferArranger {
 					if (!skyline.anyDominationByInput()) {
 						skyline.setInputDominationMap();
 						skyline.putRecordToWindow();
+						if(typeOfBnl.equals("rplc win. bnl")){
+							skyline.performansCarpanHesapla();
+						}
 						if (z > 0)
 							replacedInwindow.add(window.getRid());
 					} else {
@@ -136,7 +174,7 @@ public class BufferArranger {
 
 				} else {
 					if (skyline.compareDomination4Input() == -1) {
-						if(typeOfBnl.equals("self organize bnl")){
+						if(typeOfBnl.equals("self org. bnl")){
 							replacedInwindow = skyline.selfOrganizer(replacedInwindow);
 						}
 						inputIsDominatedFlag++;// eðer windowun en sonundaki
@@ -171,6 +209,9 @@ public class BufferArranger {
 						skyline.setWindow(window);
 						// skyline.setInputDominationMap();
 						skyline.putRecordToWindow();
+						if(typeOfBnl.equals("rplc win. bnl")){
+							skyline.performansCarpanHesapla();
+						}
 						if (i > 0) 
 							input.delete();
 						if (z > 0)
@@ -179,8 +220,20 @@ public class BufferArranger {
 
 					} else {
 						// if()
+						
+						if(typeOfBnl.equals("rplc win. bnl")){
+							//if(z > 0)
+								replacedInwindow = skyline.selectVictim(replacedInwindow, i);
+								input = skyline.getInput();
+						}
 						z++;
-						putToTemp();
+						
+//						if(i == 0){
+//							
+//							putToTemp(skyline.getInpList());
+//						}
+						//else
+							putToTemp();
 					}
 				} else if (i > 0)
 					input.delete();
@@ -188,7 +241,11 @@ public class BufferArranger {
 			}
 		}
 	}
-
+	/*
+	 * domine edilmeyen/etmeyen input deðerinin skyline özelliklerinin çarpýmý
+	 * windowdakilerle karþýlaþtýrýlýr.
+	 */
+	
 	// windowa sýðmayan ve olasý skyline noktalar tempfile'a aktarýldý.
 	public void putToTemp() {
 		if (z == 1)
@@ -196,7 +253,10 @@ public class BufferArranger {
 		if (i == 0) {
 			tempfile.insert();
 			skyline.setTempFile(tempfile);
-			skyline.putRecordToTemp();
+			if(typeOfBnl.equals("rplc win. bnl") && !skyline.getInpList().isEmpty())
+				skyline.putRecordToTemp(skyline.getInpList());
+			else
+				skyline.putRecordToTemp();
 		}
 		// z++;
 		// System.out.println("" + z +"." + " kayýt");
@@ -218,8 +278,15 @@ public class BufferArranger {
 								// sýfýrýncý
 								// bloðu üzerindeki pin kaldýrýldý.
 				if (i == 0) {
-
-					TableInfo ti2 = new TableInfo("temp1", ti.schema());
+					System.out.println("TempFiel adý:" + tempFileName);
+					String sub = null;
+					if(tempFileName.substring(5, 6).equals("."))
+						sub = tempFileName.substring(0, 5);
+					
+					else
+						sub = tempFileName.substring(0, 6);
+					
+					TableInfo ti2 = new TableInfo(sub, ti.schema());
 					input = new RecordFile(ti2, tx);// sýfýrýncý blok yeniden
 													// pinlendi.Bu defa input,
 													// input.tbl yerine
@@ -237,9 +304,22 @@ public class BufferArranger {
 				input.beforeFirst();
 				inputToWindow();
 
-			} else
+			} else{
+//				input.close();
+//				tempfile.close();
+				tx.commit();
 				break;
+			}
+				
 		}
 
+	}
+
+
+
+
+
+	public RecordFile getInput() {
+		return input;
 	}
 }

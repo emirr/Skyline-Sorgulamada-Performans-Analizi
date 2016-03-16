@@ -13,19 +13,40 @@ import simpledb.record.RecordFile;
 public class SkylineFinder {
 	private WindowUpdateScan window;
 	private TableScan tempFile;
-	private RecordFile input;
+	private RecordFile input,input2;
 	private int diskerisimsayisi;
 	private RID windRID, inpRID;
 	private int id, blkNo;
+	HashMap<String,Integer> inpList = new HashMap<>();
+	public HashMap<String, Integer> getInpList() {
+		return inpList;
+	}
+
+	private HashMap<RID, Long> performansCarpani = new HashMap<>();// RID window
+																	// deðerinin
+																	// konumunun,Long
+																	// ise
+																	// özelliklerin
+																	// çarpýmýnýn
+																	// tipidir.
 	private ArrayList<String> skylineDimensions;
-//	private int tempRecordSize;// bu silinmeli 4...
-//	private static int k, l;
+	public void setSkylineDimensions(ArrayList<String> skylineDimensions) {
+		this.skylineDimensions = skylineDimensions;
+	}
+
+	// private int tempRecordSize;// bu silinmeli 4...
+	// private static int k, l;
 	private int upsize;
 	private Map<RID, RID> inputDominationMap = new HashMap<>();
-	static ArrayList<Integer> skylinePoints = new ArrayList<>();
+	private ArrayList<Integer> skylinePoints ;
 
 	SkylineFinder(ArrayList<String> skylineDimension) {
 		this.skylineDimensions = skylineDimension;
+		this.skylinePoints = new ArrayList<>();
+	}
+
+	public ArrayList<Integer> getSkylinePoints() {
+		return skylinePoints;
 	}
 
 	public ArrayList<String> getSkylineDimensions() {
@@ -86,45 +107,45 @@ public class SkylineFinder {
 	}
 
 	public void putRecordToWindow() {
-		/*System.out.println("inputdan windowa:" + k++);*/
+		//System.out.println("inputdan windowa:" ); 
 		for (String tempField : getSkylineDimensions()) {
 			// System.out.println(tempField);
 			window.setInt(tempField, input.getInt(tempField));
 
-			/*System.out.print(" " + input.getInt(tempField));*/
+			//System.out.print(" " + input.getInt(tempField)); 
 
 		}
-		/*System.out.println(" ");*/
-		// System.out.println(" " + window.getInt("A"));
-		// window.setInt("B", input.getInt("B"));
-		// System.out.println(" " + window.getInt("B"));
-		// long timestamp = System.currentTimeMillis();
-
-		// System.out.print(" " + input.getInt("A"));
-		// System.out.println(" " + input.getInt("B"));
+		//System.out.println(" "); 
+		
 
 	}
 
 	void putRecordToTemp() {
-		// tempFile.setInt("A", input.getInt("A"));
-		// tempFile.setInt("B", input.getInt("B"));
-		//tempRecordSize++;
-	/*System.out.println(" " + tempRecordSize + "." + "kayýt tempFile'da");*/
+		
+		
+		// System.out.println("kayýt tempFile'da");
+		 
 		for (String tempField : getSkylineDimensions()) {
 			// System.out.println(tempField);
 
 			tempFile.setInt(tempField, input.getInt(tempField));
-			/*System.out.print(" " + tempFile.getInt(tempField));*/
+			//System.out.print(" " + tempFile.getInt(tempField)); 
 		}
 
-		/*System.out.println(" ");*/
-		// System.out.println("inputdan tempFile'a");
-		// System.out.print(" " + tempFile.getInt("A"));
-		// System.out.print(" " + tempFile.getInt("B"));
-		// System.out.print(" " + timestamp );
-
+		//System.out.println(" "); 
+		 
+		
 	}
+	void putRecordToTemp(HashMap<String,Integer> inpList){
+		for (Map.Entry<String, Integer> entry : inpList.entrySet()) {
+		
+		
+			 //System.out.println(entry.getKey());
 
+			tempFile.setInt(entry.getKey(), inpList.get(entry.getKey()));
+			//System.out.print(" " + tempFile.getInt(tempField)); 
+		}
+	}
 	/*
 	 * false dönerse mevcut input deðeri windowdaki bir deðeri daha önce domine
 	 * etmemiþ demektir.Aksi durumda ise input deðeri daha önce bir window
@@ -197,44 +218,126 @@ public class SkylineFinder {
 			}
 			window.beforeFirst();
 			window.next();
-			
-			if(window.getRid().equals(new RID(0,0))){//windowun 0.blok 0.slotu boþ deðil demektir.
+
+			if (window.getRid().equals(new RID(0, 0))) {// windowun 0.blok
+														// 0.slotu boþ deðil
+														// demektir.
 				for (String tempField : getSkylineDimensions()) {
 
-//					tmpValues = window.getInt(tempField);//0.b 1.slot deðeri
-//					window.moveToRid(new RID(0, 0));
-//					tmpValues1 = window.getInt(tempField);//0-0 dðri
-//					window.setInt(tempField, tmpValues);
-//
-//					window.moveToRid(new RID(blkNo, id));
-//					window.setInt(tempField, tmpValues1);
+					// tmpValues = window.getInt(tempField);//0.b 1.slot deðeri
+					// window.moveToRid(new RID(0, 0));
+					// tmpValues1 = window.getInt(tempField);//0-0 dðri
+					// window.setInt(tempField, tmpValues);
+					//
+					// window.moveToRid(new RID(blkNo, id));
+					// window.setInt(tempField, tmpValues1);
 					tmpValues1 = window.getInt(tempField);
 					window.moveToRid(new RID(blkNo, id));
 					tmpValues = window.getInt(tempField);
-					window.setInt(tempField, tmpValues1);//0.b-1.s ye 0-0 deðeri atandý.
+					window.setInt(tempField, tmpValues1);// 0.b-1.s ye 0-0
+															// deðeri atandý.
 					window.moveToRid(new RID(0, 0));
-					window.setInt(tempField, tmpValues);//0.b-0.s a 0-1 deðeri atandý.
+					window.setInt(tempField, tmpValues);// 0.b-0.s a 0-1 deðeri
+														// atandý.
 				}
-			}
-			else{//0-0 boþ demektir.
-				
-//				window.beforeFirst();
-//				window.insert();
-				for (String tempField : getSkylineDimensions()){
+			} else {// 0-0 boþ demektir.
+
+				// window.beforeFirst();
+				// window.insert();
+				for (String tempField : getSkylineDimensions()) {
 					window.moveToRid(new RID(blkNo, id));
 					tmpValues = window.getInt(tempField);
 					window.moveToRid(new RID(0, 0));
 					window.setInt(tempField, tmpValues);
-				//window.moveToRid(new RID(blkNo, id));
-				
+					// window.moveToRid(new RID(blkNo, id));
+
 				}
-				window.insert();//0-0 INUSE yapýldý.
+				window.insert();// 0-0 INUSE yapýldý.
 				window.moveToRid(new RID(blkNo, id));
-				window.delete();//0-1 EMPTY yapýldý.
+				window.delete();// 0-1 EMPTY yapýldý.
 			}
-			
 
 		}
 		return replacedInWindow;
+	}
+
+	public HashMap<RID, Long> getPerformansCarpani(){
+		return performansCarpani;
+	}
+
+	// windowdaki her bir deðerin skyline özelliklerinin çarpýmý,window
+	// adresleri key olacak þekilde tutulur.
+	public void performansCarpanHesapla() {
+		long carpanDegeri = 1;
+		for (String tempField : getSkylineDimensions()) {
+			carpanDegeri = carpanDegeri * window.getInt(tempField);
+		}
+		performansCarpani.put(window.getRid(), carpanDegeri);
+	}
+	public HashSet<RID> selectVictim(HashSet<RID> replacedInwindow, int iterasyonSayýsý) {
+		//System.out.println("window replace ediliyor.");
+		long inputCarpanDegeri = 1;
+		inpList.clear();
+		for (String tempField : getSkylineDimensions()) {
+			inputCarpanDegeri = inputCarpanDegeri * input.getInt(tempField);
+		}
+
+		window.beforeFirst();
+		long max = 0;// windowdaki max. çarpan deðeri
+		window.next();
+		max = performansCarpani.get(window.getRid());
+		RID maxRID = window.getRid();
+		while (window.next()) {
+			if (max < performansCarpani.get(window.getRid())) {
+				max = performansCarpani.get(window.getRid());
+				maxRID = window.getRid();
+			}
+		}
+		if (inputCarpanDegeri < max) {
+			/* yer deðiþimi yapýlacak */
+			window.moveToRid(maxRID);
+//			RID currentInputRID = input.currentRid();
+//			RID lastInputRID = null;
+//			input.beforeFirst();
+//			while(input.next()){
+//				lastInputRID = input.currentRid();
+//			}
+			int tempWindow = 0;
+			int tempInput = 0;
+			//input2 = input;
+//			inpList.clear();
+			for (String tempField : getSkylineDimensions()) {
+				tempWindow = window.getInt(tempField);
+				//input.moveToRid(currentInputRID);
+				tempInput = input.getInt(tempField);
+				
+				window.setInt(tempField, tempInput);
+				//System.out.println("windowa gelen:" + tempInput);
+				
+				//System.out.println("inputa gelen:" + tempWindow);
+				//input.moveToRid(lastInputRID);
+				//input.insert();
+				if(iterasyonSayýsý == 0){
+					inpList.put(tempField, tempWindow);
+				}
+				else{
+					input.setInt(tempField, tempWindow);
+					//System.out.println("geçemedi");
+				}
+				
+			}
+			//input.close();
+			if(replacedInwindow != null && !replacedInwindow.contains(maxRID)){
+				replacedInwindow.add(maxRID);
+			}
+		}
+		return replacedInwindow;
+	}
+
+	public RecordFile getInput() {
+		return input;
+	}
+	public RecordFile getInput2() {
+		return input2;
 	}
 }
