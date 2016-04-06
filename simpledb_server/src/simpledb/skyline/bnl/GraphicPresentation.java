@@ -1,4 +1,19 @@
-//package simpledb.skyline.bnl;
+package simpledb.skyline.bnl;
+
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+
+import javax.swing.JPanel;
+
+
 //
 //import java.awt.BasicStroke;
 //import java.awt.Color;
@@ -14,8 +29,10 @@
 //
 //import javax.swing.JPanel;
 //
-//public class GraphicPresentation extends JPanel implements ActionListener {
+  public class GraphicPresentation extends JPanel implements ActionListener {
 //
+	ArrayList<Shape> points = new ArrayList<>();
+	Dimension frameSize = new Dimension();
 //	private int[][] allPoints;
 //	private int[][] skylinePoints;
 //
@@ -32,7 +49,7 @@
 //				 System.out.println("allpoint length:" +
 //						 allPoints.length);
 //	}
-//
+ 
 //	void determineColorOfPoints() {
 //		for (int i = 0; i < allPoints.length; i++) {
 //
@@ -68,10 +85,37 @@
 ////		System.out.println("map edilen deðer:" + x + "-" + y);
 //	}
 //
-//	private void doDrawing(Graphics g) {
+	public GraphicPresentation (Dimension frameSize){
+		this.frameSize = frameSize;
+	}
+    private void doDrawing(Graphics g) {
 //
-//		Graphics2D g2 = (Graphics2D) g;
-//		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		Graphics2D g2 = (Graphics2D) g;
+		//AffineTransform at = g2.getTransform();
+		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		//g2.tr
+		Color color;
+		//int i = 0;
+		for (int i = 0; i < Correlated.list.length; i++) {
+			int x =(int) Correlated.list[i][0];
+			if(x < 0)
+				x = -x;
+			//System.out.println("x:" + x);
+			int y =(int)  Correlated.list[i][1];
+			if(y < 0)
+				y = -y;
+			//Shape s = new Line2D.Double(x, y, x, y);
+			
+			color = Color.BLACK;
+			g2.setPaint(color);
+			g2.setStroke(new BasicStroke(2));
+			
+		
+			//i = i + 2;
+			System.out.println("heigt:" + frameSize.getHeight());
+			y =(int) frameSize.getHeight() - y;
+			g2.drawLine(x, y, x, y);
+		}
 //		Point2D e;
 //
 //		Color color;
@@ -100,17 +144,19 @@
 //			// i++;
 //			// System.out.println("... belirleme iþlemi tamam." + i);
 //		}
-//	}
+	}
 //
-//	@Override
-//	public void paintComponent(Graphics g) {
+	@Override
+	public void paintComponent(Graphics g) {
+
+		super.paintComponent(g);
+		doDrawing(g);
+	}
 //
-//		super.paintComponent(g);
-//		doDrawing(g);
-//	}
-//
-//	@Override
-//	public void actionPerformed(ActionEvent e) {
-//		repaint();
-//	}
-//} // end class GraphicPresentation
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		repaint();
+	}
+	
+
+} // end class GraphicPresentation
