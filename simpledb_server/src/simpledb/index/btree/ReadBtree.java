@@ -1,5 +1,6 @@
 package simpledb.index.btree;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import simpledb.file.Block;
@@ -12,42 +13,54 @@ import simpledb.tx.Transaction;
 
 public class ReadBtree {
 	Transaction tx1;
-	 MetadataMgr md;
+	MetadataMgr md;
 	TableInfo ti;
 	// System.out.println("filename:" +ti.fileName());
-	 int leafblocknum;
-	 int recordnum = 0;
-	 int blocknum = 0;
-	 HashMap<RID,Constant> values = new HashMap<>();
-
-	public  HashMap<RID, Constant> getValues() {
-		return values;
-	}
+	int leafblocknum;
+	int recordnum = 0;
+	int blocknum = 0;
+	String fldname;
+	ArrayList<RID> ids;
+	//HashMap<String, ArrayList<RID>> values = new HashMap<>();
 
 	
 
-	 void test(String fldname) {
+	public ArrayList<RID> getIds() {
+		return ids;
+	}
+
+	void readInit(String fieldname, int clickCount) {
 		// TODO Auto-generated method stub
-		SimpleDB.init("btreedeneme5");
+		// SimpleDB.init("btreedeneme5");
+		// SimpleDB.init(dbname);
+		fldname = fieldname;
 		tx1 = new Transaction();
 		md = SimpleDB.mdMgr();
-		ti = md.getTableInfo("btreeinddleaf", tx1);
-		// // System.out.println("filename:" +ti.fileName());
+		//ti = md.getTableInfo("fl", tx1);
+//		if(ti.schema() == null)
+//			System.out.println("sallama filename þema:");
+		/*******/
+		ti = md.getTableInfo("bt"+ clickCount + fldname + "leaf", tx1);
+		System.out.println("filename:" +ti.fileName());
 		leafblocknum = tx1.size(ti.fileName());
+		System.out.println("bt"+ fldname + "leaf blok no:" + leafblocknum);
 		recordnum = 0;
 		blocknum = 0;
-		skeleton();
+		readAllLeafs();
 		// Transaction tx1 = new Transaction();
 		// MetadataMgr md = SimpleDB.mdMgr();
 		// TableInfo ti = md.getTableInfo("btreeind7leaf", tx1);
 		// System.out.println("filename:" +ti.fileName());
 	}
 
-	 void skeleton() {
+	void readAllLeafs() {
 		// int leafblocknum = tx1.size(ti.fileName());
-		System.out.println("toplam blok sayýsý:" + leafblocknum);
+		//System.out.println("toplam blok sayýsý:" + leafblocknum);
 		Block currentBlk = new Block(ti.fileName(), 0);
 		BTreePage currentPage = new BTreePage(currentBlk, ti, tx1);
+//		if(!ids.isEmpty())
+//			ids.clear();
+		ids = new ArrayList<>();
 		// BTreeLeaf btleaf = new BTreeLeaf(currentBlk, ti, searchkey, tx1);
 		int slot = 0;
 		// int k = 0;
@@ -56,37 +69,22 @@ public class ReadBtree {
 		int newblknum = 0;
 		BTreePage miniPage = null;
 		while (currentPage.getNextLeaf() > 0 && currentPage.getNextLeaf() < leafblocknum) {
-			System.out.println("next leaf var." + currentPage.getNextLeaf());
+			//System.out.println("next leaf var." + currentPage.getNextLeaf());
 			newblknum = currentPage.getNextLeaf();
 			slot = 0;
-			System.out.println("" + blocknum + ". blok" + " gerçek blok no:" + currentPage.getCurrentblk().number());
+			//System.out.println("" + blocknum + ". blok" + " gerçek blok no:" + currentPage.getCurrentblk().number());
 			blocknum++;
 
 			while (slot < currentPage.getNumRecs()) {
-				System.out.println("" + recordnum + ". eleman " + currentPage.getDataVal(slot));
-			
-				values.put(currentPage.getDataRid(slot), currentPage.getDataVal(slot));
+				//System.out.println("" + recordnum + ". eleman " + currentPage.getDataVal(slot) + " rid:" + currentPage.getDataRid(slot));
+
+				// values.put(currentPage.getDataRid(slot),
+				// currentPage.getDataVal(slot));
+				ids.add(currentPage.getDataRid(slot));
 				if (currentPage.getFlag() > 0 && (z == 0)) {
-					System.out.println("flag 0 dan büyük");
+					//System.out.println("flag 0 dan büyük");
 					z++;
-					// int minislot = 0;
-					// Block miniblk = new
-					// Block(ti.fileName(),currentPage.getFlag());
-					// if(miniPage != null)
-					// miniPage.close();
-					// miniPage = new BTreePage(miniblk, ti, tx1);
-					// blocknum++;
-					// while(minislot < miniPage.getNumRecs()){
-					//// if(miniPage.getFlag() > 0 && (z==0)){
-					//// System.out.println("overflow block bile overflow bloka
-					// sabit");
-					//// }
-					//
-					// recordnum++;
-					// System.out.println(" "+recordnum+". eleman " +
-					// miniPage.getDataVal(minislot));
-					// minislot++;
-					// }
+
 					findRecordsInOverflowBlk(currentPage, miniPage);
 				}
 				recordnum++;
@@ -98,70 +96,37 @@ public class ReadBtree {
 			currentPage = new BTreePage(currentBlk, ti, tx1);
 			z = 0;
 		}
-		System.out.println("next leaf durumu:" + currentPage.getNextLeaf() + " blkNo:"
-				+ currentPage.getCurrentblk().number() + " kayýt sayýsý:" + currentPage.getNumRecs());
+		//System.out.println("next leaf durumu:" + currentPage.getNextLeaf() + " blkNo:"
+		//		+ currentPage.getCurrentblk().number() + " kayýt sayýsý:" + currentPage.getNumRecs());
 		// if(currentPage.getCurrentblk().number() == (leafblocknum-1)){
 		slot = 0;
 		blocknum++;
-		System.out.println("" + blocknum + ". blok");
+		//System.out.println("" + blocknum + ". blok");
 		while (slot < currentPage.getNumRecs()) {
-			
-			System.out.println("" + recordnum + ". eleman " + currentPage.getDataVal(slot));
-			values.put(currentPage.getDataRid(slot), currentPage.getDataVal(slot));
+
+			//System.out.println("" + recordnum + ". eleman " + currentPage.getDataVal(slot) + " rid:" + currentPage.getDataRid(slot));
+			// values.put(currentPage.getDataRid(slot),
+			// currentPage.getDataVal(slot));
+			ids.add(currentPage.getDataRid(slot));
 			if (currentPage.getFlag() > 0 && (z == 0)) {
-				System.out.println("flag 0 dan büyük");
+				//System.out.println("flag 0 dan büyük");
 				z++;
-				// findRecordsInOverflowBlk(currentPage, miniPage);
-				// int minislot = 0;
-				// Block miniblk = new
-				// Block(ti.fileName(),currentPage.getFlag());
-				// if(miniPage != null)
-				// miniPage.close();
-				// miniPage = new BTreePage(miniblk, ti, tx1);
-				// blocknum++;
-				// System.out.println(" kayýt sayýsý:"+ miniPage.getNumRecs());
-				// while(minislot < miniPage.getNumRecs()){
-				//
-				// recordnum++;
-				// System.out.println(" "+recordnum+". eleman " +
-				// miniPage.getDataVal(minislot));
-				// minislot++;
-				// }
+
 				findRecordsInOverflowBlk(currentPage, miniPage);
 			}
 			recordnum++;
 			slot++;
 
 		}
-		System.out.println("toplam blok sayýsý:" + leafblocknum);
-		 currentPage.close();
-		// miniPage.close();
-		// }
-		// for(int i=0; i<leafblocknum; i++){
-		// System.out.println("" + i +". blok");
-		// currentBlk = new Block(ti.fileName(), i);
-		// if(currentPage != null)
-		// currentPage.close();
-		// currentPage = new BTreePage(currentBlk, ti, tx1);
-		// slot = 0;
-		// while(slot < currentPage.getNumRecs()){
-		// System.out.println(""+k+". eleman " + currentPage.getDataVal(slot));
-		// k++;
-		// slot++;
-		// }
-		// }
-		//
-		// BTreeIndex bidx = (BTreeIndex) idx;
-		// ti = md.getTableInfo("btreeIdxleaf", tx);
-		// RecordFile rf2 = new RecordFile(ti, tx);
-		// if(ti.schema().hasField("block"))
-		// System.out.println("yas alanýna sahip");
-		// else
-		// System.out.println("alana sahip deðil");
+		//System.out.println("toplam blok sayýsý:" + leafblocknum);
+		//values.put(fldname, ids);
+		currentPage.close();
+		tx1.commit();
+		System.out.println("btree recordnum:" + recordnum);
 
 	}
 
-	 void findRecordsInOverflowBlk(BTreePage currPage, BTreePage miniPage) {
+	void findRecordsInOverflowBlk(BTreePage currPage, BTreePage miniPage) {
 		int minislot = 0;
 		int z = 0;
 		BTreePage miniminiPage = null;
@@ -171,23 +136,24 @@ public class ReadBtree {
 			miniPage.close();
 		miniPage = new BTreePage(miniblk, ti, tx1);
 		blocknum++;
-		System.out.println(" kayýt sayýsý:" + miniPage.getNumRecs());
+		//System.out.println(" kayýt sayýsý:" + miniPage.getNumRecs());
 		while (minislot < miniPage.getNumRecs()) {
 			if (miniPage.getFlag() > 0 && (z == 0)) {
-				System.out.println("overflowun da overflowu var");
+				//System.out.println("overflowun da overflowu var");
 				z++;
 				miniminiblk = new Block(ti.fileName(), miniPage.getFlag());
 				if (miniminiPage != null)
 					miniminiPage.close();
 				miniminiPage = new BTreePage(miniminiblk, ti, tx1);
-				//blocknum++;
-				
+				// blocknum++;
+
 				findRecordsInOverflowBlk(miniPage, miniminiPage);
 
 			}
 			recordnum++;
-			System.out.println(" " + recordnum + ". eleman " + miniPage.getDataVal(minislot));
-			values.put(miniPage.getDataRid(minislot), miniPage.getDataVal(minislot));
+			//System.out.println(" " + recordnum + ". eleman " + miniPage.getDataVal(minislot) + " rid:" + miniPage.getDataRid(minislot));
+			//values.put(miniPage.getDataRid(minislot), miniPage.getDataVal(minislot));
+			ids.add(miniPage.getDataRid(minislot));
 			minislot++;
 		}
 		if (miniPage != null)
