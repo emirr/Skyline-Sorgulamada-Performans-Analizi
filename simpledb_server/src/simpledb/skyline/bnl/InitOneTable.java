@@ -26,9 +26,9 @@ public class InitOneTable {
 	TableInfo ti, ti1;
 	RecordFile rf, rf1;
 	public ArrayList<String> skylineFields;
-	public static int[][] allTuples;
-	public static int[][] skylineTuples;
-	public static int[][] temp;
+	public static Object[][] allTuples;
+	public static Object[][] skylineTuples;
+	public static Object[][] temp;
 	private int upsize;
 	private int buffSize;
 
@@ -45,9 +45,10 @@ public class InitOneTable {
 		initData(dbName, click);
 	}
 
-	public InitOneTable(String tblName) {
+	public InitOneTable(String tblName, Schema sch) {
 		// this.numberOfTuples = tupleSize;
 		this.tableName = tblName;
+		this.sch = sch;
 	}
 
 	// public static int[][] hazirDizi = {{77 ,95},{97 ,42},{1 ,77},{72 ,49},{81
@@ -66,25 +67,22 @@ public class InitOneTable {
 	}
 
 	// public void createTable()
-	public void initData(String dbdir, int click) {
+	public void initData(String dbdir, int tableCount) {
 		System.out.println("BEGIN INITIALIZATION");
 		// SimpleDB.setBUFFER_SIZE(buffSize);
 		if (tx != null)
 			tx.commit();
-		SimpleDB.init(dbdir);
+		if (tableCount == 0)
+			SimpleDB.init(dbdir);
 
-		System.out.println("burası mı?");
+		// System.out.println("burası mı?");
 		md = SimpleDB.mdMgr();
 		tx = new Transaction();
 
-		// create and populate the student table
-		// sch = new Schema();
-		/// sch.addIntField("A");
-		/// sch.addIntField("B");
-
 		// addField();
 		System.out.println("initTableName:" + tableName);
-		if (tableName != null && click == 0) {
+		// && click == 0
+		if (tableName != null) {
 			// System.out.println("loading data");
 
 			md.createTable(tableName, sch, tx);
@@ -101,7 +99,7 @@ public class InitOneTable {
 			// addField();
 			// md.createTable(tableName, sch, tx);
 			// ti = md.getTableInfo(tableName, tx);
-
+			System.out.println("yazacak:" + ti.fileName());
 			rf = new RecordFile(ti, tx);
 			while (rf.next())
 				rf.delete();
@@ -113,42 +111,29 @@ public class InitOneTable {
 					Random _rgen = new Random();
 
 					for (String schField : ti.schema().fields()) {
-						System.out.println(" ");
-						System.out.print("fieldname:" + schField + " ");
+						//System.out.println(" ");
+						//System.out.print("fieldname:" + schField + " ");
 						if (sch.type(schField) == INTEGER) {
-							int fieldVal = _rgen.nextInt(200);
+							int fieldVal = _rgen.nextInt(200) + 10;
 
 							rf.setInt(schField, fieldVal);
-							System.out.print("" + rf.getInt(schField) + " ");
+							//System.out.print("" + rf.getInt(schField) + " ");
 						} else {
-							String fieldValStr = new String();
-							rf.setString(schField, fieldValStr);
-							System.out.print("" + rf.getInt(schField) + " ");
-							System.out.println(" string yok ki");
+							if (sch.type(schField) == VARCHAR) {
+								String fieldValStr = new String();
+								rf.setString(schField, fieldValStr);
+								//System.out.print("" + rf.getString(schField) + " ");
+								// System.out.println(" string yok ki");
+							} else {
+								double fieldVal1 = 10 + _rgen.nextDouble() * 200.0;
+								rf.setDouble(schField, fieldVal1);
+								//System.out.print(" " + rf.getDouble(schField));
+							}
 
 						}
 					}
-					
+
 				}
-				
-				//// int a = 0;
-				//// int b = 0;
-				//// // allTuples = new
-				//// // int[numberOfTuples][getSkylineFields().size()];
-				//// rf.beforeFirst();
-				//// while (rf.next()) {
-				//// b = 0;
-				//// for (String tempField : getSkylineFields()) {
-				//// // System.out.println(tempField);
-				//// allTuples[a][b] = rf.getInt(tempField);
-				//// b++;
-				//// }
-				//// a++;
-				//// }
-				// rf.close();
-				// for(int i = 0; i < numberOfTuples; i++){
-				// skylineTuples[i][0] = 0;
-				// }
 
 				rf.close();
 				tx.commit();
@@ -156,134 +141,104 @@ public class InitOneTable {
 				// tx.recover(); // add a checkpoint record, to limit rollback
 			} else {
 				if (distributionType.equals("corr")) {
-					int stringSayısı = 0;
-					for(String schemaNames : ti.schema().fields()){
-						if(sch.type(schemaNames) == VARCHAR)
-							stringSayısı++;
+					int stringSayisi = 0;
+					for (String schemaNames : ti.schema().fields()) {
+						if (sch.type(schemaNames) == VARCHAR)
+							stringSayisi++;
 					}
-					rf.insert();
-					double[] means = new double[ti.schema().fields().size() - stringSayısı];
-					double[][] cov = new double[ti.schema().fields().size() - stringSayısı][ti.schema().fields().size() - stringSayısı];
+					// rf.insert();
+					double[] means = new double[ti.schema().fields().size() - stringSayisi];
+					double[][] cov = new double[ti.schema().fields().size() - stringSayisi][ti.schema().fields().size()
+							- stringSayisi];
 					MultivariateNormalDistribution mnd;
-					double[] valuesss = new double[ti.schema().fields().size() - stringSayısı];
-					double[][] list = new double[numberOfTuples][ti.schema().fields().size() - stringSayısı];
+					double[] valuesss = new double[ti.schema().fields().size() - stringSayisi];
+					double[][] list = new double[numberOfTuples][ti.schema().fields().size() - stringSayisi];
 
 					for (int i = 0; i < list.length; i++) {
+						rf.insert();
+						System.out.println("" + i + "." + "kay�t");
 						Random _rgen = new Random();
 						int a = _rgen.nextInt(190) + 50;
-						
-						for(int k= 0; k<means.length;k++){
-							for(int l=0; l<means.length;l++){
-								if(k == l){
-									
-									cov[k][l] = 100 + _rgen.nextDouble()*300.0;
-								}
-								else{
-									//System.out.println("l:" + l + "k:" + k);
-									if(cov[l][k] != 0)
+
+						for (int k = 0; k < means.length; k++) {
+							for (int l = 0; l < means.length; l++) {
+								if (k == l) {
+
+									cov[k][l] = 100 + _rgen.nextDouble() * 300.0;
+								} else {
+									// System.out.println("l:" + l + "k:" + k);
+									if (cov[l][k] != 0)
 										cov[k][l] = cov[l][k];
 									else
-										cov[k][l] = 10 + _rgen.nextDouble()*30.0;
+										cov[k][l] = 10 + _rgen.nextDouble() * 30.0;
 								}
 							}
 						}
-						
+
 						double c = (double) a;
-						System.out.println("c:" + c);
-						for(int u = 0; u < means.length; u++){
+						//System.out.println("c:" + c);
+						for (int u = 0; u < means.length; u++) {
 							means[u] = c;
 						}
-//						means[0] = c;
-//						means[1] = c;
+						// means[0] = c;
+						// means[1] = c;
 						// means[2] = c;
 						// means[3] = c;
 						mnd = new MultivariateNormalDistribution(means, cov);
 						// mnd.
 						valuesss = mnd.sample();
-						for (int j = 0; j < means.length; j++) {
-							if (valuesss[j] < 0)
-								list[i][j] = -valuesss[j];
-							else
-								list[i][j] = valuesss[j];
-							int valIndx = 0;
-							
-							for (String schField : ti.schema().fields()) {
-								System.out.println(" ");
-								System.out.print("fieldname:" + schField + " ");
-								if (sch.type(schField) == INTEGER) {
+						// for (int j = 0; j < means.length; j++) {
+						// if (valuesss[j] < 0)
+						// list[i][j] = -valuesss[j];
+						// else
+						// list[i][j] = valuesss[j];
+						int valIndx = 0;
+
+						for (String schField : ti.schema().fields()) {
+							//System.out.println(" ");
+							//System.out.print("fieldname:" + schField + " ");
+							if (sch.type(schField) == INTEGER) {
+								if (valuesss[valIndx] < 0)
+									valuesss[valIndx] = -valuesss[valIndx];
+
+								int tmpValInt = (int) valuesss[valIndx];
+								rf.setInt(schField, tmpValInt);
+								valIndx++;
+								//System.out.print("" + rf.getInt(schField) + " ");
+							} else {
+								if (sch.type(schField) == VARCHAR) {
+									String fieldValStr = new String();
+									rf.setString(schField, fieldValStr);
+									System.out.print("" + rf.getInt(schField) + " ");
+									// System.out.println(" string yok ki");
+								} else {
 									if (valuesss[valIndx] < 0)
 										valuesss[valIndx] = -valuesss[valIndx];
-										
-									int tmpValInt = (int) valuesss[valIndx];
-									rf.setInt(schField, tmpValInt);
+									rf.setDouble(schField, valuesss[valIndx]);
 									valIndx++;
-									System.out.print("" + rf.getInt(schField) + " ");
-								} else {
-									if(sch.type(schField) == VARCHAR){
-										String fieldValStr = new String();
-										rf.setString(schField, fieldValStr);
-										System.out.print("" + rf.getInt(schField) + " ");
-										System.out.println(" string yok ki");
-									}
-//									else{
-//										rf.setDouble(schField, valuesss[valIndx]);
-//										valIndx++;
-//									}
-
+									//System.out.print(" " + rf.getDouble(schField) + " ");
 								}
-							}
-							
-						}
-					}
-//					System.out.println();
-//
-//					for (double[] value : list) {
-//						System.out.print(" " + value[0]);
-//						System.out.println(" " + value[1]);
-//					}
 
+							}
+						}
+						//System.out.println("valINdex:" + valIndx);
+						// }
+					}
+					// System.out.println();
+					//
+					// for (double[] value : list) {
+					// System.out.print(" " + value[0]);
+					// System.out.println(" " + value[1]);
+					// }
+					rf.close();
+					tx.commit();
 				}
 
 				// }
 			}
-			// } else {
-			// System.out.println("eski vt'den devam");
-			// md1 = SimpleDB.mdMgr();
-			// tx1 = new Transaction();
-			// ti1 = md1.getTableInfo(tableName, tx1);
-			//
-			// RecordFile rf1 = new RecordFile(ti1, tx1);
-			// int a = 0;
-			// int b = 0;
-			// allTuples = new int[numberOfTuples][getSkylineFields().size()];
-			// while (rf1.next()) {
-			// b = 0;
-			// for (String tempField : getSkylineFields()) {
-			// // System.out.println(tempField);
-			// allTuples[a][b] = rf1.getInt(tempField);
-			// b++;
-			// }
-			// a++;
-			// }
-			// dummy();
-			// rf1.close();
-			// tx1.commit();
-			// tx1 = new Transaction();
-			// tx1.recover(); // add a checkpoint record, to limit rollback
-			//
+
 		}
 	}
-	/* KullanıcıEkrn sınıfına taşınacak. */
-	// public void addField(String fieldType, String fieldName, int length) {
-	//
-	// // System.out.println(" " + i);
-	// if (fieldType.equals("int"))
-	// sch.addIntField(fieldName);
-	// else
-	// sch.addStringField(fieldName, length);
-	// // System.out.println("field name:" + String.valueOf((char)(i + 65)) );
-	//
-	// }
 
 	public void dummy() {
 
@@ -296,17 +251,22 @@ public class InitOneTable {
 		int g = 0;
 		int b = 0;
 		int recordSize = 0;
+		System.out.println("");
 		while (rf1.next()) {
 			recordSize++;
 		}
 		System.out.println("alltuple size:" + recordSize);
-		allTuples = new int[recordSize][getSkylineFields().size()];
+		allTuples = new Object[recordSize][getSkylineFields().size()];
 		rf1.beforeFirst();
 		while (rf1.next()) {
 			b = 0;
 			for (String tempField : getSkylineFields()) {
 				// // System.out.println(tempField);
-				allTuples[g][b] = rf1.getInt(tempField);
+				if (sch.type(tempField) == INTEGER)
+					allTuples[g][b] = rf1.getInt(tempField);
+				else
+					allTuples[g][b] = rf1.getDouble(tempField);
+
 				b++;
 			}
 			g++;
@@ -332,12 +292,13 @@ public class InitOneTable {
 		tx1.commit();
 		// tx1 = new Transaction();
 		// tx1.recover(); // add a checkpoint record, to limit rollback
-		skylineTuples = new int[1][getSkylineFields().size()];
+		skylineTuples = new Object[1][getSkylineFields().size()];
 		for (int i = 0; i < getSkylineFields().size(); i++) {
 			skylineTuples[0][i] = allTuples[0][i];
 			// skylineTuples[0][1] = allTuples[0][1];
 			/*
-			 * System.out.print("" + i + "." +"kayıt:" + allTuples[0][i] + " ");
+			 * System.out.print("" + i + "." +"kayıt:" + allTuples[0][i] + " "
+			 * );
 			 */
 			// System.out.println(allTuples[i][1]);
 		}
@@ -347,8 +308,8 @@ public class InitOneTable {
 			int countOfAllTupleDominate = 0;/*
 											 * alltuple'daki değer,
 											 * skylinetuple'daki değeri domine
-											 * etmişse sıfırdan farklı,bir kere
-											 * dahi domine etmesi yeterli
+											 * etmişse sıfırdan farklı,bir
+											 * kere dahi domine etmesi yeterli
 											 */
 			int j = 0;
 			/*
@@ -375,13 +336,13 @@ public class InitOneTable {
 
 					else {/*
 							 * mevcut allTuple değeri daha önce skylineda bir
-							 * değeri domine etti bu sefer bir başka değeri daha
-							 * domine etti.Bu nedenle allTuple değerinin domine
-							 * ettiği ilk değer dışındaki skyline değerleri
-							 * listeden silinmeli.
+							 * değeri domine etti bu sefer bir başka değeri
+							 * daha domine etti.Bu nedenle allTuple değerinin
+							 * domine ettiği ilk değer dışındaki skyline
+							 * değerleri listeden silinmeli.
 							 */
 						temp = skylineTuples;
-						skylineTuples = new int[temp.length - 1][getSkylineFields().size()];
+						skylineTuples = new Object[temp.length - 1][getSkylineFields().size()];
 						for (int k = 0; k < j; k++) {
 							skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
 						}
@@ -402,7 +363,7 @@ public class InitOneTable {
 						if (j == (skylineTuples.length - 1)) {
 							if (countOfAllTupleDominate == 0) {
 								temp = skylineTuples;
-								skylineTuples = new int[temp.length + 1][getSkylineFields().size()];
+								skylineTuples = new Object[temp.length + 1][getSkylineFields().size()];
 								for (int k = 0; k < temp.length; k++) {
 									skylineTuples[k] = Arrays.copyOf(temp[k], temp[k].length);
 								}
@@ -426,7 +387,7 @@ public class InitOneTable {
 		}
 		System.out.println("olmasý gereken skyline:");
 		System.out.println("" + skylineTuples.length + " adet");
-		for (int[] mtr : skylineTuples) {
+		for (Object[] mtr : skylineTuples) {
 			for (int h = 0; h < getSkylineFields().size(); h++) {
 				System.out.print(" " + mtr[h] + " ");
 			}
@@ -434,7 +395,7 @@ public class InitOneTable {
 		}
 	}
 
-	public int compareDomination4Input(int m1[][], int m2[][], int a, int b) {
+	public int compareDomination4Input(Object m1[][], Object m2[][], int a, int b) {
 
 		int k = 0;
 		upsize = getSkylineFields().size();
@@ -465,6 +426,20 @@ public class InitOneTable {
 					m = 0;
 				}
 
+			}
+		} else {
+			if (x instanceof Double && y instanceof Double) {
+				if ((double) x < (double) y)
+					m = 1;
+				else {
+					if ((double) x > (double) y)
+						m = -1;
+					else {
+						upsize--;
+						m = 0;
+					}
+
+				}
 			}
 		}
 		return m;

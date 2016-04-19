@@ -65,13 +65,14 @@ public class BufferArranger {
 											// sonunda bu listede olmayan ve
 											// dolu olan tüm window RID'ler
 											// skyline'dir.
-	BufferArranger(String type, ArrayList<String> skylineBoyutu, int windSize, String tableName, int clickCount){
+	public BufferArranger(String type, ArrayList<String> skylineBoyutu, int windSize, String tableName, int clickCount){
 		this.typeOfBnl = type;
 		//this.windowSize = windSize;
 		this.skylineBoyut = skylineBoyutu;
-		skyline = new SkylineFinder(skylineBoyut);
+//		skyline = new SkylineFinder(skylineBoyut);
 		//tx = new Transaction();
 		ti = md.getTableInfo(tableName, tx);
+		skyline = new SkylineFinder(skylineBoyut,ti.schema());
 		input = new RecordFile(ti, tx);
 		String windTblName;
 		if(clickCount == 0)

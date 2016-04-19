@@ -4,32 +4,39 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import static java.sql.Types.*;
 
 import simpledb.multibuffer.WindowUpdateScan;
 import simpledb.query.TableScan;
 import simpledb.record.RID;
 import simpledb.record.RecordFile;
+import simpledb.record.Schema;
 
 public class SkylineFinder {
 	private WindowUpdateScan window;
 	private TableScan tempFile;
-	private RecordFile input,input2;
+	private RecordFile input, input2;
 	private int diskerisimsayisi;
 	private RID windRID, inpRID;
 	private int id, blkNo;
-	HashMap<String,Integer> inpList = new HashMap<>();
-	public HashMap<String, Integer> getInpList() {
+	private Schema sch;
+	private int h;
+	HashMap<String, Object> inpList = new HashMap<>();
+
+	public HashMap<String, Object> getInpList() {
 		return inpList;
 	}
 
-	private HashMap<RID, Long> performansCarpani = new HashMap<>();// RID window
-																	// deðerinin
-																	// konumunun,Long
-																	// ise
-																	// özelliklerin
-																	// çarpýmýnýn
-																	// tipidir.
+	private HashMap<RID, Double> performansCarpani = new HashMap<>();// RID
+																		// window
+																		// deðerinin
+																		// konumunun,Long
+																		// ise
+																		// özelliklerin
+																		// çarpýmýnýn
+																		// tipidir.
 	private ArrayList<String> skylineDimensions;
+
 	public void setSkylineDimensions(ArrayList<String> skylineDimensions) {
 		this.skylineDimensions = skylineDimensions;
 	}
@@ -38,14 +45,15 @@ public class SkylineFinder {
 	// private static int k, l;
 	private int upsize;
 	private Map<RID, RID> inputDominationMap = new HashMap<>();
-	private ArrayList<Integer> skylinePoints ;
+	private ArrayList<Object> skylinePoints;
 
-	SkylineFinder(ArrayList<String> skylineDimension) {
+	SkylineFinder(ArrayList<String> skylineDimension, Schema schName) {
 		this.skylineDimensions = skylineDimension;
 		this.skylinePoints = new ArrayList<>();
+		this.sch = schName;
 	}
 
-	public ArrayList<Integer> getSkylinePoints() {
+	public ArrayList<Object> getSkylinePoints() {
 		return skylinePoints;
 	}
 
@@ -62,7 +70,16 @@ public class SkylineFinder {
 		int k = 0;
 		upsize = getSkylineDimensions().size();
 		for (String tempField : getSkylineDimensions()) {
-			k += deepCompare(input.getInt(tempField), window.getInt(tempField));
+			//System.out.println("tempfield:" + tempField + "alan tipi:" + sch.type(tempField));
+			//System.out.println("" + input.getInt(tempField));
+			if (sch.type(tempField) == INTEGER){
+				//System.out.println("input alan:" + tempField + " " + input.getInt(tempField));
+				//System.out.println("window alan:" + tempField + " " + window.getInt(tempField));
+				k += deepCompare(input.getInt(tempField), window.getInt(tempField));
+				
+			}
+			if (sch.type(tempField) == DOUBLE)
+				k += deepCompare(input.getDouble(tempField), window.getDouble(tempField));
 		}
 		if ((upsize != 0) && k == upsize)
 			return 1;
@@ -90,6 +107,19 @@ public class SkylineFinder {
 
 			}
 		}
+		if (x instanceof Double && y instanceof Double) {
+			if ((double) x < (double) y)
+				m = 1;
+			else {
+				if ((double) x > (double) y)
+					m = -1;
+				else {
+					upsize--;
+					m = 0;
+				}
+
+			}
+		}
 		return m;
 	}
 
@@ -107,45 +137,55 @@ public class SkylineFinder {
 	}
 
 	public void putRecordToWindow() {
-		//System.out.println("inputdan windowa:" ); 
+		h++;
+		//System.out.println("inputdan windowa:" + h);
 		for (String tempField : getSkylineDimensions()) {
-			// System.out.println(tempField);
-			window.setInt(tempField, input.getInt(tempField));
-
-			//System.out.print(" " + input.getInt(tempField)); 
+			System.out.print(tempField + ":");
+			if (sch.type(tempField) == INTEGER) {
+				window.setInt(tempField, input.getInt(tempField));
+				//System.out.print(" " + input.getInt(tempField) + "-");
+			}
+			// if (sch.type(tempField) == DOUBLE)
+			else {
+				window.setDouble(tempField, input.getDouble(tempField));
+				//System.out.print(" " + input.getDouble(tempField) + " ");
+			}
+			// System.out.print(" " + input.getInt(tempField));
 
 		}
-		//System.out.println(" "); 
-		
+		//System.out.println(" ");
 
 	}
 
 	void putRecordToTemp() {
-		
-		
+
 		// System.out.println("kayýt tempFile'da");
-		 
+
 		for (String tempField : getSkylineDimensions()) {
 			// System.out.println(tempField);
-
-			tempFile.setInt(tempField, input.getInt(tempField));
-			//System.out.print(" " + tempFile.getInt(tempField)); 
+			if (sch.type(tempField) == INTEGER)
+				tempFile.setInt(tempField, input.getInt(tempField));
+			if (sch.type(tempField) == DOUBLE)
+				tempFile.setDouble(tempField, input.getDouble(tempField));
+			// System.out.print(" " + tempFile.getInt(tempField));
 		}
 
-		//System.out.println(" "); 
-		 
-		
-	}
-	void putRecordToTemp(HashMap<String,Integer> inpList){
-		for (Map.Entry<String, Integer> entry : inpList.entrySet()) {
-		
-		
-			 //System.out.println(entry.getKey());
+		// System.out.println(" ");
 
-			tempFile.setInt(entry.getKey(), inpList.get(entry.getKey()));
-			//System.out.print(" " + tempFile.getInt(tempField)); 
+	}
+
+	void putRecordToTemp(HashMap<String, Object> inpList) {
+		for (Map.Entry<String, Object> entry : inpList.entrySet()) {
+
+			// System.out.println(entry.getKey());
+			if (sch.type(entry.getKey()) == INTEGER)
+				tempFile.setInt(entry.getKey(), (int) inpList.get(entry.getKey()));
+			if (sch.type(entry.getKey()) == DOUBLE)
+				tempFile.setDouble(entry.getKey(), (double) inpList.get(entry.getKey()));
+			// System.out.print(" " + tempFile.getInt(tempField));
 		}
 	}
+
 	/*
 	 * false dönerse mevcut input deðeri windowdaki bir deðeri daha önce domine
 	 * etmemiþ demektir.Aksi durumda ise input deðeri daha önce bir window
@@ -161,7 +201,11 @@ public class SkylineFinder {
 		while (window.next()) {
 			if (replaceInWindow == null || !replaceInWindow.contains(window.getRid())) {
 				for (String tempField : getSkylineDimensions()) {
-					skylinePoints.add(window.getInt(tempField));
+					if (sch.type(tempField) == INTEGER)
+						skylinePoints.add(window.getInt(tempField));
+					if (sch.type(tempField) == DOUBLE)
+						skylinePoints.add(window.getDouble(tempField));
+
 				}
 
 				// skylinePoints.add(window.getInt("B"));
@@ -196,8 +240,10 @@ public class SkylineFinder {
 	public HashSet<RID> selfOrganizer(HashSet<RID> replacedInWindow) {
 		id = window.getRid().id();
 		blkNo = window.getRid().blockNumber();
-		int tmpValues = 0;
-		int tmpValues1 = 0;
+		// int tmpValues = 0;
+		// int tmpValues1 = 0;
+		Object tmpValues = 0;
+		Object tmpValues1 = 0;
 
 		// String tempField = new int[skylineDimensions];
 		if (id != 0 || blkNo != 0) {
@@ -231,14 +277,31 @@ public class SkylineFinder {
 					//
 					// window.moveToRid(new RID(blkNo, id));
 					// window.setInt(tempField, tmpValues1);
-					tmpValues1 = window.getInt(tempField);
+					if (sch.type(tempField) == INTEGER)
+						tmpValues1 = window.getInt(tempField);
+					if (sch.type(tempField) == DOUBLE)
+						tmpValues1 = window.getDouble(tempField);
+
 					window.moveToRid(new RID(blkNo, id));
-					tmpValues = window.getInt(tempField);
-					window.setInt(tempField, tmpValues1);// 0.b-1.s ye 0-0
-															// deðeri atandý.
+					if (sch.type(tempField) == INTEGER)
+						tmpValues = window.getInt(tempField);
+					if (sch.type(tempField) == DOUBLE)
+						tmpValues = window.getDouble(tempField);
+					if (sch.type(tempField) == INTEGER)
+						window.setInt(tempField, (int) tmpValues1);// 0.b-1.s ye
+																	// 0-0
+																	// deðeri
+																	// atandý.
+					if (sch.type(tempField) == DOUBLE)
+						window.setDouble(tempField, (double) tmpValues1);
 					window.moveToRid(new RID(0, 0));
-					window.setInt(tempField, tmpValues);// 0.b-0.s a 0-1 deðeri
-														// atandý.
+					if (sch.type(tempField) == INTEGER)
+						window.setInt(tempField, (int) tmpValues);// 0.b-0.s a
+																	// 0-1
+																	// deðeri
+					// atandý.
+					if (sch.type(tempField) == DOUBLE)
+						window.setDouble(tempField, (double) tmpValues);
 				}
 			} else {// 0-0 boþ demektir.
 
@@ -246,9 +309,15 @@ public class SkylineFinder {
 				// window.insert();
 				for (String tempField : getSkylineDimensions()) {
 					window.moveToRid(new RID(blkNo, id));
-					tmpValues = window.getInt(tempField);
+					if (sch.type(tempField) == INTEGER)
+						tmpValues = window.getInt(tempField);
+					if (sch.type(tempField) == DOUBLE)
+						tmpValues = window.getDouble(tempField);
 					window.moveToRid(new RID(0, 0));
-					window.setInt(tempField, tmpValues);
+					if (sch.type(tempField) == INTEGER)
+						window.setInt(tempField, (int) tmpValues);
+					if (sch.type(tempField) == DOUBLE)
+						window.setDouble(tempField, (double) tmpValues);
 					// window.moveToRid(new RID(blkNo, id));
 
 				}
@@ -261,29 +330,39 @@ public class SkylineFinder {
 		return replacedInWindow;
 	}
 
-	public HashMap<RID, Long> getPerformansCarpani(){
+	public HashMap<RID, Double> getPerformansCarpani() {
 		return performansCarpani;
 	}
 
 	// windowdaki her bir deðerin skyline özelliklerinin çarpýmý,window
 	// adresleri key olacak þekilde tutulur.
 	public void performansCarpanHesapla() {
-		long carpanDegeri = 1;
+		// long carpanDegeri = 1;
+		double carpanDegeri = 1.0;
 		for (String tempField : getSkylineDimensions()) {
-			carpanDegeri = carpanDegeri * window.getInt(tempField);
+			if (sch.type(tempField) == INTEGER)
+				carpanDegeri = carpanDegeri * (double) window.getInt(tempField);
+			if (sch.type(tempField) == DOUBLE)
+				carpanDegeri = carpanDegeri * window.getDouble(tempField);
 		}
 		performansCarpani.put(window.getRid(), carpanDegeri);
 	}
+
 	public HashSet<RID> selectVictim(HashSet<RID> replacedInwindow, int iterasyonSayýsý) {
-		//System.out.println("window replace ediliyor.");
-		long inputCarpanDegeri = 1;
+		// System.out.println("window replace ediliyor.");
+		// long inputCarpanDegeri = 1;
+		double inputCarpanDegeri = 1.0;
 		inpList.clear();
 		for (String tempField : getSkylineDimensions()) {
-			inputCarpanDegeri = inputCarpanDegeri * input.getInt(tempField);
+			if (sch.type(tempField) == INTEGER)
+				inputCarpanDegeri = inputCarpanDegeri * (double) input.getInt(tempField);
+			if (sch.type(tempField) == DOUBLE)
+				inputCarpanDegeri = inputCarpanDegeri * input.getDouble(tempField);
 		}
 
 		window.beforeFirst();
-		long max = 0;// windowdaki max. çarpan deðeri
+		// long max = 0;// windowdaki max. çarpan deðeri
+		double max = 0.0;
 		window.next();
 		max = performansCarpani.get(window.getRid());
 		RID maxRID = window.getRid();
@@ -296,38 +375,49 @@ public class SkylineFinder {
 		if (inputCarpanDegeri < max) {
 			/* yer deðiþimi yapýlacak */
 			window.moveToRid(maxRID);
-//			RID currentInputRID = input.currentRid();
-//			RID lastInputRID = null;
-//			input.beforeFirst();
-//			while(input.next()){
-//				lastInputRID = input.currentRid();
-//			}
-			int tempWindow = 0;
-			int tempInput = 0;
-			//input2 = input;
-//			inpList.clear();
+			// RID currentInputRID = input.currentRid();
+			// RID lastInputRID = null;
+			// input.beforeFirst();
+			// while(input.next()){
+			// lastInputRID = input.currentRid();
+			// }
+			Object tempWindow = null;
+			Object tempInput = null;
+			// input2 = input;
+			// inpList.clear();
 			for (String tempField : getSkylineDimensions()) {
-				tempWindow = window.getInt(tempField);
-				//input.moveToRid(currentInputRID);
-				tempInput = input.getInt(tempField);
-				
-				window.setInt(tempField, tempInput);
-				//System.out.println("windowa gelen:" + tempInput);
-				
-				//System.out.println("inputa gelen:" + tempWindow);
-				//input.moveToRid(lastInputRID);
-				//input.insert();
-				if(iterasyonSayýsý == 0){
+				if (sch.type(tempField) == INTEGER)
+					tempWindow = window.getInt(tempField);
+				if (sch.type(tempField) == DOUBLE)
+					tempWindow = window.getDouble(tempField);
+				// input.moveToRid(currentInputRID);
+				if (sch.type(tempField) == INTEGER)
+					tempInput = input.getInt(tempField);
+				if (sch.type(tempField) == DOUBLE)
+					tempInput = input.getDouble(tempField);
+
+				if (sch.type(tempField) == INTEGER)
+					window.setInt(tempField, (int) tempInput);
+				if (sch.type(tempField) == DOUBLE)
+					window.setDouble(tempField, (double) tempInput);
+				// System.out.println("windowa gelen:" + tempInput);
+
+				System.out.println("window replace ediliyor...");
+				// input.moveToRid(lastInputRID);
+				// input.insert();
+				if (iterasyonSayýsý == 0) {
 					inpList.put(tempField, tempWindow);
+				} else {
+					if (sch.type(tempField) == INTEGER)
+						input.setInt(tempField, (int) tempWindow);
+					if (sch.type(tempField) == DOUBLE)
+						input.setDouble(tempField, (double) tempWindow);
+					// System.out.println("geçemedi");
 				}
-				else{
-					input.setInt(tempField, tempWindow);
-					//System.out.println("geçemedi");
-				}
-				
+
 			}
-			//input.close();
-			if(replacedInwindow != null && !replacedInwindow.contains(maxRID)){
+			// input.close();
+			if (replacedInwindow != null && !replacedInwindow.contains(maxRID)) {
 				replacedInwindow.add(maxRID);
 			}
 		}
@@ -337,6 +427,7 @@ public class SkylineFinder {
 	public RecordFile getInput() {
 		return input;
 	}
+
 	public RecordFile getInput2() {
 		return input2;
 	}

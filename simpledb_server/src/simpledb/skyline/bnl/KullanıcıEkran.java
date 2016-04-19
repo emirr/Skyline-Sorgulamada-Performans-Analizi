@@ -47,11 +47,11 @@ public class KullanýcýEkran extends JFrame {
 	private boolean fieldBuildCompleteStat = false;
 	public Test1 test1;
 	public Deneme1 deneObj;
-	static int clickCount;
+	static int clickCount,tableCount;
 	MetadataMgr mg;
-	
-	Transaction tx ;
-	
+
+	Transaction tx;
+
 	/**
 	 * Launch the application.
 	 */
@@ -152,10 +152,10 @@ public class KullanýcýEkran extends JFrame {
 		JButton btnTabloSe = new JButton("Tablo Se\u00E7");
 		btnTabloSe.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				//System.out.println("tablo seçiliyor...");
+				// System.out.println("tablo seçiliyor...");
 				JPanel al = new JPanel();
 				String s = (String) comboBox_4.getSelectedItem();
-				//System.out.println("tablo seçim vt adý" + s);
+				System.out.println("tablo seçim vt adý:" + s);
 				// findTable(s);
 				for (String field : findTable(s)) {
 
@@ -174,7 +174,7 @@ public class KullanýcýEkran extends JFrame {
 							JRadioButton cb = (JRadioButton) component;
 							if (cb.isSelected())
 								tmpStr = cb.getText();// tablo adý
-							
+
 							textArea.setText(tmpStr);
 							// skylineFields.add(cb.getText());//gerçeklemede
 							// init kullanmak yerine bir ArrayList<Stirng>
@@ -188,27 +188,28 @@ public class KullanýcýEkran extends JFrame {
 				// for(String field : skylineFields){
 				// System.out.println(" " + field);
 				// }
-//				System.out.println("ss"+s);
-				//tmpStr6 = (String) comboBox_3.getSelectedItem();//blocksize
+				// System.out.println("ss"+s);
+				// tmpStr6 = (String) comboBox_3.getSelectedItem();//blocksize
 				SimpleDB.init(s);
 				mg = SimpleDB.mdMgr();
 				tx = new Transaction();
-//				System.out.println("" +tx);
+				// System.out.println("" +tx);
 				int indexOf = tmpStr.indexOf(".");
 				System.out.println(". index:" + indexOf);
 				System.out.println("ilk hali:" + tmpStr);
 				tmpStr = tmpStr.substring(0, indexOf);
 				System.out.println("son hali:" + tmpStr);
-				if(mg == null)
+				if (mg == null)
 					System.out.println("mg null");
 				TableInfo ti = mg.getTableInfo(tmpStr, tx);
-				System.out.println("table name:" + ti.fileName() + " " + ti.recordLength() );
-//				tx.commit();
+				System.out.println("table name:" + ti.fileName() + "record length: " + ti.recordLength());
+				// tx.commit();
+				System.out.println("field num:" + ti.schema().fields().size());
 				System.out.println("seçilen hazýr tablonun alanlarý:");
-				for(String schm: ti.schema().fields())
+				for (String schm : ti.schema().fields())
 					System.out.println(" " + schm);
 				sch = ti.schema();
-				deneObj = new Deneme1(sch); 
+				deneObj = new Deneme1(sch);
 				tx.commit();
 			}
 		});
@@ -289,7 +290,7 @@ public class KullanýcýEkran extends JFrame {
 
 		JComboBox comboBox = new JComboBox();
 		sl_alanBilgiPanel.putConstraint(SpringLayout.NORTH, comboBox, -3, SpringLayout.NORTH, lblAlanTipi);
-		comboBox.setModel(new DefaultComboBoxModel(new String[] { "int", "String" }));
+		comboBox.setModel(new DefaultComboBoxModel(new String[] { "int", "double", "String" }));
 		comboBox.setSelectedIndex(0);
 		lblAlanTipi.setLabelFor(comboBox);
 		alanBilgiPanel.add(comboBox);
@@ -323,12 +324,11 @@ public class KullanýcýEkran extends JFrame {
 		// sl_contentPane.putConstraint(SpringLayout.WEST, comboBox_2, 6,
 		// SpringLayout.EAST, lblNewLabel_1);
 
-		
 		tabloBilgiPanel.add(comboBox_2);
 		sl_contentPane.putConstraint(SpringLayout.NORTH, comboBox_2, 302, SpringLayout.NORTH, contentPane);
 		comboBox_2.setModel(new DefaultComboBoxModel(new String[] { "indp.", "corr", "anticorrr" }));
 		comboBox_2.setSelectedIndex(0);
-		
+
 		alanBilgiPanel.add(lblUzunluk);
 
 		textField_3 = new JTextField();
@@ -387,7 +387,7 @@ public class KullanýcýEkran extends JFrame {
 		sl_contentPane.putConstraint(SpringLayout.NORTH, comboBox_1, 302, SpringLayout.NORTH, contentPane);
 		sl_contentPane.putConstraint(SpringLayout.EAST, comboBox_1, -282, SpringLayout.EAST, contentPane);
 		comboBox_1.setModel(
-				new DefaultComboBoxModel(new String[] { "-", "basic bnl", "rplc win. bnl", "self org. bnl" }));
+				new DefaultComboBoxModel(new String[] {"-", "basic bnl", "rplc win. bnl", "self org. bnl", "btree"}));
 		comboBox_1.setSelectedIndex(2);
 		ayarPanel.add(comboBox_1);
 
@@ -409,7 +409,7 @@ public class KullanýcýEkran extends JFrame {
 		sl_contentPane.putConstraint(SpringLayout.WEST, comboBox_3, 214, SpringLayout.WEST, contentPane);
 		sl_contentPane.putConstraint(SpringLayout.NORTH, comboBox_3, 0, SpringLayout.NORTH, comboBox_1);
 
-		comboBox_3.setModel(new DefaultComboBoxModel(new String[] { "4", "6", "7", "8", "50" }));
+		comboBox_3.setModel(new DefaultComboBoxModel(new String[] {"4", "6", "7", "8", "10", "50"}));
 		comboBox_3.setSelectedIndex(0);
 
 		javax.swing.border.Border lineBorder33 = BorderFactory.createLineBorder(Color.BLACK);
@@ -486,8 +486,9 @@ public class KullanýcýEkran extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				String a = (String) comboBox_4.getSelectedItem();
 				if (a.equals("-")) {
-					tmpStr = textField.getText();//yeni tablo adý
-					tmpStr2 = textField_1.getText();// kayýt sayýsý int'e çevrilmeli
+					tmpStr = textField.getText();// yeni tablo adý
+					tmpStr2 = textField_1.getText();// kayýt sayýsý int'e
+													// çevrilmeli
 					tmpStr3 = textField_4.getText();// vt adý
 					tmpStr4 = (String) comboBox_1.getSelectedItem();// alg. tipi
 					System.out.println("algo tip:" + tmpStr4);
@@ -495,93 +496,99 @@ public class KullanýcýEkran extends JFrame {
 																	// daðýlýmý
 					tmpStr6 = (String) comboBox_3.getSelectedItem();//
 					test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
-					
-					//test1 = new Test1(dene.getSch(), );
-					if(test1 == null)
+
+					// test1 = new Test1(dene.getSch(), );
+					if (test1 == null)
 						System.out.println("test1 null");
 					test1.execNewSystem(tmpStr4, Integer.parseInt(tmpStr6), tmpStr, Integer.parseInt(tmpStr2), tmpStr5,
 							tmpStr3, clickCount);
 					clickCount++;
 					System.out.println("clickcount:" + clickCount);
-				} else{
-					//tmpStr3 = a;
-					tmpStr = textArea.getText();//hazýr tablo adý
+				} else {
+					// tmpStr3 = a;
+					tmpStr = textArea.getText();// hazýr tablo adý
 					int indexOf = tmpStr.indexOf(".");
 					System.out.println(". index:" + indexOf);
 					System.out.println("ilk hali:" + tmpStr);
 					tmpStr = tmpStr.substring(0, indexOf);
 					System.out.println("en son hali:" + tmpStr);
 					test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
-					tmpStr6 = (String) comboBox_3.getSelectedItem();//blocksize
+					tmpStr6 = (String) comboBox_3.getSelectedItem();// blocksize
 					System.out.println("son blok size:" + Integer.parseInt(tmpStr6));
 					tmpStr4 = (String) comboBox_1.getSelectedItem();// alg. tipi
 					System.out.println("algo tip:" + tmpStr4);
-					
-					test1.execCurrentSystem(tmpStr,Integer.parseInt(tmpStr6),tmpStr4,clickCount);
+					tmpStr3 = (String) comboBox_4.getSelectedItem();// vt adý
+
+					test1.execCurrentSystem(tmpStr, Integer.parseInt(tmpStr6), tmpStr4, clickCount, tmpStr3);
 					clickCount++;
 					System.out.println("clickcount:" + clickCount);
 				}
 
 				// tmpStr = textField.getText();// tablo adý
-				
-				//test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
-				
+
+				// test1 = new Test1(deneObj.getSch(),
+				// deneObj.getSkylineFields());
 
 			}
 		});
 
 		JButton btnNewButton_1 = new JButton("Tablo Olu\u015Ftur");
-		
-				tabloBilgiPanel.add(btnNewButton_1);
-				btnNewButton_1.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						String a = (String) comboBox_4.getSelectedItem();
-						if (a.equals("-")) {// yeni vt
-							for(String s : sch.fields())
-								System.out.println("þema alaný1:" + s);										// kuruluyor
-							System.out.println("tablo oluþturuluyor...");
-							tmpStr = textField.getText();// tablo adý
-							System.out.println(""+tmpStr);
-							tmpStr2 = textField_1.getText();// kayýt sayýsý int'e
-															// çevrilmeli
-							System.out.println(""+tmpStr2);
-							tmpStr3 = textField_4.getText();// vt adý
-							System.out.println(""+tmpStr3);
-							tmpStr5 = (String) comboBox_2.getSelectedItem();// dataset
-							// daðýlýmý
-							System.out.println(""+tmpStr5);
-							tmpStr6 = (String) comboBox_3.getSelectedItem();//blocksize
-//							test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
-							System.out.println(""+tmpStr6);
-							for(String s : sch.fields())
-								System.out.println("þema alaný2:" + s);
-							test1 = new Test1(sch);
-							
-							if(test1 == null)
-								System.out.println("tablo oluþturma sýrasýnda test1 null");
-							test1.createSystem(Integer.parseInt(tmpStr2), tmpStr5, tmpStr, tmpStr3, Integer.parseInt(tmpStr6),clickCount);
-							sch2 = sch;
-							sch = new Schema();
-							if(!sch.hasField("a"))
-								System.out.println("yeni þema atandý...");
-							
-						}// else {
-//							tmpStr3 = a;//hazýr vt adý
-//							tmpStr = textArea.getText();//hazýr tablo adý
-//							
-//						}
-						// tmpStr = textField.getText();// tablo adý
 
-//		tmpStr4 = (String) comboBox_1.getSelectedItem();// alg. tipi
-//		System.out.println("algo tip:" + tmpStr4);
-//
-//		//test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
-//		test1.execAllSystem(tmpStr4, Integer.parseInt(tmpStr6), tmpStr, Integer.parseInt(tmpStr2), tmpStr5,
-//				tmpStr3, clickCount);
-//		clickCount++;
-//		System.out.println("clickcount:" + clickCount);
-					}
-				});
+		tabloBilgiPanel.add(btnNewButton_1);
+		btnNewButton_1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				String a = (String) comboBox_4.getSelectedItem();
+				if (a.equals("-")) {// yeni vt
+					for (String s : sch.fields())
+						System.out.println("þema alaný1:" + s); // kuruluyor
+					System.out.println("tablo oluþturuluyor...");
+					tmpStr = textField.getText();// tablo adý
+					System.out.println("" + tmpStr);
+					tmpStr2 = textField_1.getText();// kayýt sayýsý int'e
+													// çevrilmeli
+					System.out.println("" + tmpStr2);
+					tmpStr3 = textField_4.getText();// vt adý
+					System.out.println("" + tmpStr3);
+					tmpStr5 = (String) comboBox_2.getSelectedItem();// dataset
+					// daðýlýmý
+					System.out.println("" + tmpStr5);
+					tmpStr6 = (String) comboBox_3.getSelectedItem();// blocksize
+					// test1 = new Test1(deneObj.getSch(),
+					// deneObj.getSkylineFields());
+					System.out.println("" + tmpStr6);
+					for (String s : sch.fields())
+						System.out.println("þema alaný2:" + s);
+					test1 = new Test1(sch);
+
+					if (test1 == null)
+						System.out.println("tablo oluþturma sýrasýnda test1 null");
+					test1.createSystem(Integer.parseInt(tmpStr2), tmpStr5, tmpStr, tmpStr3, Integer.parseInt(tmpStr6),
+							tableCount);
+					tableCount++;
+					sch2 = sch;
+					sch = new Schema();
+					if (!sch.hasField("a"))
+						System.out.println("yeni þema atandý...");
+
+				} // else {
+				// tmpStr3 = a;//hazýr vt adý
+				// tmpStr = textArea.getText();//hazýr tablo adý
+				//
+				// }
+				// tmpStr = textField.getText();// tablo adý
+
+				// tmpStr4 = (String) comboBox_1.getSelectedItem();// alg. tipi
+				// System.out.println("algo tip:" + tmpStr4);
+				//
+				// //test1 = new Test1(deneObj.getSch(),
+				// deneObj.getSkylineFields());
+				// test1.execAllSystem(tmpStr4, Integer.parseInt(tmpStr6),
+				// tmpStr, Integer.parseInt(tmpStr2), tmpStr5,
+				// tmpStr3, clickCount);
+				// clickCount++;
+				// System.out.println("clickcount:" + clickCount);
+			}
+		});
 	}
 
 	public boolean isFieldBuildComplete() {
@@ -592,8 +599,12 @@ public class KullanýcýEkran extends JFrame {
 	public void addAnyField(String ad, String tip, String uzunluk) {
 		if (tip.equals("int"))
 			sch.addIntField(ad);
-		else
-			sch.addStringField(ad, Integer.parseInt(uzunluk));
+		else {
+			if (tip.equals("double"))
+				sch.addDoubleField(ad);
+			else
+				sch.addStringField(ad, Integer.parseInt(uzunluk));
+		}
 		// return sch;
 	}
 
@@ -626,7 +637,7 @@ public class KullanýcýEkran extends JFrame {
 			public boolean accept(File dir, String name) {
 
 				return !(name.startsWith("fldcat") || name.startsWith("simpledb") || name.startsWith("tblcat")
-						|| name.startsWith("temp") || name.startsWith("viewcat") || name.startsWith("idx"));
+						|| name.startsWith("temp") || name.startsWith("viewcat") || name.startsWith("idx") || name.startsWith("bt") || name.startsWith("nom"));
 
 			}
 		};
