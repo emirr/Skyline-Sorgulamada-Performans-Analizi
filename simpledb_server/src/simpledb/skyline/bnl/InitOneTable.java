@@ -19,6 +19,7 @@ public class InitOneTable {
 	public int numberOfTuples;
 	private String distributionType;
 	private String tableName;
+	
 	// private String dbName;
 	MetadataMgr md, md1;
 	Transaction tx, tx1;

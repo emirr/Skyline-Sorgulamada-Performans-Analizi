@@ -61,7 +61,11 @@ public class BTreeIndex implements Index {
 		dirsch.add("block", leafsch);
 		dirsch.add("dataval", leafsch);
 		String dirtbl = idxname + "dir";
-		dirTi = new TableInfo(dirtbl, dirsch);
+		md.createTable(dirtbl, dirsch, tx);
+		//dirTi = new TableInfo(dirtbl, dirsch);
+		dirTi = md.getTableInfo(dirtbl, tx); 
+		for (String alan : dirTi.schema().fields())
+			System.out.println("dir alanlar:" + alan);
 		rootblk = new Block(dirTi.fileName(), 0);
 		if (tx.size(dirTi.fileName()) == 0)
 			// create new root block

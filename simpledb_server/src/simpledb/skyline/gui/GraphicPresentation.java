@@ -1,4 +1,4 @@
-package simpledb.skyline.bnl;
+package simpledb.skyline.gui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;

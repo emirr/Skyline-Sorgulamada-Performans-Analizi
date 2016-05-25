@@ -1,4 +1,4 @@
-package simpledb.skyline.bnl;
+package simpledb.skyline.gui;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -8,6 +8,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.HashMap;
 import java.util.Vector;
 
 import javax.swing.BorderFactory;
@@ -30,7 +31,10 @@ import simpledb.metadata.MetadataMgr;
 import simpledb.record.Schema;
 import simpledb.record.TableInfo;
 import simpledb.server.SimpleDB;
+import simpledb.skyline.bnl.Deneme1;
+import simpledb.skyline.bnl.ExecutorOfAllSystem;
 import simpledb.tx.Transaction;
+import javax.swing.JCheckBox;
 
 public class KullanýcýEkran extends JFrame {
 
@@ -43,10 +47,11 @@ public class KullanýcýEkran extends JFrame {
 	JButton btnAddField;
 	private Schema sch = new Schema();
 	Schema sch2 = new Schema();
-	private String tmpStr, tmpStr2, tmpStr3, tmpStr4, tmpStr5, tmpStr6;
+	private String tmpStr, tmpStr2, tmpStr3, tmpStr4, tmpStr5, tmpStr6, tmpStr7;
 	private boolean fieldBuildCompleteStat = false;
-	public Test1 test1;
+	public ExecutorOfAllSystem executorOfAllSystem;
 	public Deneme1 deneObj;
+	private HashMap<String, Boolean> fieldIndexStat = new HashMap<>();
 	static int clickCount,tableCount;
 	MetadataMgr mg;
 
@@ -202,7 +207,7 @@ public class KullanýcýEkran extends JFrame {
 				if (mg == null)
 					System.out.println("mg null");
 				TableInfo ti = mg.getTableInfo(tmpStr, tx);
-				System.out.println("table name:" + ti.fileName() + "record length: " + ti.recordLength());
+				System.out.println("table name:" + ti.fileName() + " record length: " + ti.recordLength());
 				// tx.commit();
 				System.out.println("field num:" + ti.schema().fields().size());
 				System.out.println("seçilen hazýr tablonun alanlarý:");
@@ -335,6 +340,9 @@ public class KullanýcýEkran extends JFrame {
 		lblUzunluk.setLabelFor(textField_3);
 		alanBilgiPanel.add(textField_3);
 		textField_3.setColumns(5);
+		
+		JCheckBox chckbxIsndexed = new JCheckBox("isIndexed");
+		alanBilgiPanel.add(chckbxIsndexed);
 
 		btnAddField = new JButton("Add Field");
 
@@ -358,8 +366,10 @@ public class KullanýcýEkran extends JFrame {
 				tmpStr2 = textField_3.getText();// uzunluk bilgisi alýndý
 				// if(tmpStr2 == null)
 				// tmpStr2 = "0";
-				tmpStr3 = (String) comboBox.getSelectedItem();// alan tipi
-																// alýndý
+				tmpStr3 = (String) comboBox.getSelectedItem();// alan tipi alýndý
+				boolean isIndexed = chckbxIsndexed.isSelected();
+				//if(isIndexed)
+				fieldIndexStat.put(tmpStr, isIndexed);
 				addAnyField(tmpStr, tmpStr3, tmpStr2);
 				// Schema sch1 = addAnyField(tmpStr, tmpStr3, tmpStr2);
 				System.out.println("yeni alan eklendi");
@@ -387,7 +397,7 @@ public class KullanýcýEkran extends JFrame {
 		sl_contentPane.putConstraint(SpringLayout.NORTH, comboBox_1, 302, SpringLayout.NORTH, contentPane);
 		sl_contentPane.putConstraint(SpringLayout.EAST, comboBox_1, -282, SpringLayout.EAST, contentPane);
 		comboBox_1.setModel(
-				new DefaultComboBoxModel(new String[] {"-", "basic bnl", "rplc win. bnl", "self org. bnl", "btree"}));
+				new DefaultComboBoxModel(new String[] {"-", "basic bnl", "rplc win. bnl", "self org. bnl", "btree", "rtree"}));
 		comboBox_1.setSelectedIndex(2);
 		ayarPanel.add(comboBox_1);
 
@@ -495,12 +505,12 @@ public class KullanýcýEkran extends JFrame {
 					tmpStr5 = (String) comboBox_2.getSelectedItem();// dataset
 																	// daðýlýmý
 					tmpStr6 = (String) comboBox_3.getSelectedItem();//
-					test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
+					executorOfAllSystem = new ExecutorOfAllSystem(deneObj.getSch(), deneObj.getSkylineFields());
 
 					// test1 = new Test1(dene.getSch(), );
-					if (test1 == null)
+					if (executorOfAllSystem == null)
 						System.out.println("test1 null");
-					test1.execNewSystem(tmpStr4, Integer.parseInt(tmpStr6), tmpStr, Integer.parseInt(tmpStr2), tmpStr5,
+					executorOfAllSystem.execNewSystem(tmpStr4, Integer.parseInt(tmpStr6), tmpStr, Integer.parseInt(tmpStr2), tmpStr5,
 							tmpStr3, clickCount);
 					clickCount++;
 					System.out.println("clickcount:" + clickCount);
@@ -512,14 +522,14 @@ public class KullanýcýEkran extends JFrame {
 					System.out.println("ilk hali:" + tmpStr);
 					tmpStr = tmpStr.substring(0, indexOf);
 					System.out.println("en son hali:" + tmpStr);
-					test1 = new Test1(deneObj.getSch(), deneObj.getSkylineFields());
+					executorOfAllSystem = new ExecutorOfAllSystem(deneObj.getSch(), deneObj.getSkylineFields());
 					tmpStr6 = (String) comboBox_3.getSelectedItem();// blocksize
 					System.out.println("son blok size:" + Integer.parseInt(tmpStr6));
 					tmpStr4 = (String) comboBox_1.getSelectedItem();// alg. tipi
 					System.out.println("algo tip:" + tmpStr4);
 					tmpStr3 = (String) comboBox_4.getSelectedItem();// vt adý
 
-					test1.execCurrentSystem(tmpStr, Integer.parseInt(tmpStr6), tmpStr4, clickCount, tmpStr3);
+					executorOfAllSystem.execCurrentSystem(tmpStr, Integer.parseInt(tmpStr6), tmpStr4, clickCount, tmpStr3);
 					clickCount++;
 					System.out.println("clickcount:" + clickCount);
 				}
@@ -553,20 +563,22 @@ public class KullanýcýEkran extends JFrame {
 					// daðýlýmý
 					System.out.println("" + tmpStr5);
 					tmpStr6 = (String) comboBox_3.getSelectedItem();// blocksize
+					//tmpStr7 = (String) comboBox_1.getSelectedItem();//alg. tipi
 					// test1 = new Test1(deneObj.getSch(),
 					// deneObj.getSkylineFields());
 					System.out.println("" + tmpStr6);
 					for (String s : sch.fields())
 						System.out.println("þema alaný2:" + s);
-					test1 = new Test1(sch);
+					executorOfAllSystem = new ExecutorOfAllSystem(sch);
 
-					if (test1 == null)
+					if (executorOfAllSystem == null)
 						System.out.println("tablo oluþturma sýrasýnda test1 null");
-					test1.createSystem(Integer.parseInt(tmpStr2), tmpStr5, tmpStr, tmpStr3, Integer.parseInt(tmpStr6),
-							tableCount);
+					executorOfAllSystem.createSystem(Integer.parseInt(tmpStr2), tmpStr5, tmpStr, tmpStr3, Integer.parseInt(tmpStr6),
+							tableCount, fieldIndexStat);
 					tableCount++;
 					sch2 = sch;
 					sch = new Schema();
+					fieldIndexStat = new HashMap<>();
 					if (!sch.hasField("a"))
 						System.out.println("yeni þema atandý...");
 
