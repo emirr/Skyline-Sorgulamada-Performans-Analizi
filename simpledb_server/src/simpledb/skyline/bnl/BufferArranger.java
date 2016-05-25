@@ -1,10 +1,13 @@
 package simpledb.skyline.bnl;
 
+import java.io.File;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.HashMap;
 //import java.util.ArrayList;
 import java.util.HashSet;
 
+import simpledb.file.FileMgr;
 import simpledb.materialize.TempTable;
 import simpledb.metadata.MetadataMgr;
 import simpledb.multibuffer.WindowUpdateScan;
@@ -19,7 +22,8 @@ public class BufferArranger {
 	private String typeOfBnl;
 	private String tempFileName;
 	//private int windowSize;
-	
+	int clickcount;
+	String dbName;
 	Transaction tx = new Transaction();
 	MetadataMgr md = SimpleDB.mdMgr();
 
@@ -65,7 +69,7 @@ public class BufferArranger {
 											// sonunda bu listede olmayan ve
 											// dolu olan tüm window RID'ler
 											// skyline'dir.
-	public BufferArranger(String type, ArrayList<String> skylineBoyutu, int windSize, String tableName, int clickCount){
+	public BufferArranger(String dbName, String type, ArrayList<String> skylineBoyutu, int windSize, String tableName, int clickCount){
 		this.typeOfBnl = type;
 		//this.windowSize = windSize;
 		this.skylineBoyut = skylineBoyutu;
@@ -75,15 +79,17 @@ public class BufferArranger {
 		skyline = new SkylineFinder(skylineBoyut,ti.schema());
 		input = new RecordFile(ti, tx);
 		String windTblName;
-		if(clickCount == 0)
-			windTblName = "tempWindowFile";
-		else
-			windTblName = "tempWindowFile" + clickCount;
+//		if(clickCount == 0)
+//			windTblName = "tempWindowFile";
+//		else
+		windTblName = "tempWindowFile" + (clickCount+1);
 		tiWindow = new TableInfo(windTblName, ti.schema());
 		window = new WindowUpdateScan(tiWindow, 0, windSize-1, tx);
 		temp = new TempTable(ti.schema(), tx);
 		tempFileName = temp.getTableInfo().fileName();
 		tempfile = (TableScan) temp.open();
+		this.clickcount = clickCount;
+		this.dbName = dbName;
 	}
 	
 
@@ -98,6 +104,7 @@ public class BufferArranger {
 	}
 	// inputdaki deðerler domine durumlarýna göre windowa,windowda yer yoksa
 	// tempFile'a yerleþtirilir
+	int diskerisim1 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
 	public void inputToWindow() {
 		while (input.next()) {
 			/*inputDominationMap bir inputa ait domine etme bilgisi taþýr.Bu nedenle
@@ -242,6 +249,8 @@ public class BufferArranger {
 			}
 		}
 	}
+	//int diskerisim2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+	
 	/*
 	 * domine edilmeyen/etmeyen input deðerinin skyline özelliklerinin çarpýmý
 	 * windowdakilerle karþýlaþtýrýlýr.
@@ -315,10 +324,57 @@ public class BufferArranger {
 		}
 
 	}
+	
+	public long extraStrorageInfo(){
+		long length = 0;
+		String dirName = "C:\\Users\\oblmv2" + "\\" + dbName;
+		//System.out.println(dirName);
+		File dir = new File(dirName);
+		FilenameFilter filter = new FilenameFilter() {
+			public boolean accept(File dir, String name) {
 
+				return name.startsWith("temp") ;
 
+			}
+		};
+		File[] file = dir.listFiles(filter);
+		int clc = clickcount+1;
+		//System.out.println("clc:"+clc);
+		if (file == null) {
+			System.out.println("Either dir does not exist or is not a directory");
+		} else {
+			for (int i = 0; i < file.length; i++) {
+				String filename = file[i].getName();
+				//System.out.println(filename);
+				if(clickcount<9){
+					//System.out.println("clickcoun:"+clickcount);
+					//System.out.println(""+filename.substring(4,5));
+					if(filename.substring(4,5).equals(""+clc)){
+						//System.out.println("temp file için ayrýlan1 alan:"+ file[i].length()/1024+"KB");
+						length += file[i].length();
 
+					}
+					else if(filename.startsWith("tempWindow") && filename.substring(14,15).equals(""+clc)){
+						System.out.println("tempWindow file için ayrýlan1 alan:"+ file[i].length()/1024+"KB");
+						//length += file[i].length();
+					}
+				}
+				else{
+					if(filename.substring(4,6).equals(""+clc)){
+						//System.out.println("temp file için ayrýlan1 alan:"+ file[i].length()/1024+"KB");
+						length += file[i].length();
 
+					}
+					else if(filename.startsWith("tempWindow") && filename.substring(14,16).equals(""+clc)){
+						//System.out.println("tempWindow file için ayrýlan1 alan:"+ file[i].length()/1024+"KB");
+						length += file[i].length();
+					}
+				}
+				
+			}
+		}
+		return length;
+	}
 
 	public RecordFile getInput() {
 		return input;

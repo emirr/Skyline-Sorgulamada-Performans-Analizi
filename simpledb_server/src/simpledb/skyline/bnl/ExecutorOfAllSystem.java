@@ -2,12 +2,17 @@ package simpledb.skyline.bnl;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import simpledb.file.FileMgr;
-import simpledb.index.btree.ExecutorForBtree;
 import simpledb.record.Schema;
+import simpledb.skyline.btree.CreateBtree;
+import simpledb.skyline.btree.ExecutorForBtree;
+import simpledb.skyline.gui.GraphicTest;
+import simpledb.skyline.rtree.BBSExecutor;
+import simpledb.tx.Transaction;
 
-public class Test1 {
+public class ExecutorOfAllSystem {
 
 	/**
 	 * @param args
@@ -31,14 +36,15 @@ public class Test1 {
 	// int windowSize;
 	BufferArranger buffArranger;
 	ExecutorForBtree execBtree;
+	BBSExecutor rtreeexec;
 	InitOneTable init;
 
-	public Test1(Schema sch, ArrayList<String> skyFld) {
+	public ExecutorOfAllSystem(Schema sch, ArrayList<String> skyFld) {
 		this.sch = sch;
 		this.selectedSkylineFields = skyFld;
 	}
 
-	public Test1(Schema sch) {
+	public ExecutorOfAllSystem(Schema sch) {
 		// System.out.println("þema tamam mý??");
 		this.sch = sch;
 		for (String sch1 : sch.fields())
@@ -46,27 +52,37 @@ public class Test1 {
 	}
 
 	public void createSystem(int tupleSize, String distributionType, String tblName, String dbName, int buffSize,
-			int tableCount) {
-		
+			int tableCount, HashMap<String, Boolean> fieldIndexStat) {
+
 		init = new InitOneTable(tupleSize, distributionType, tblName, sch, dbName, buffSize, tableCount);
+		Transaction txnew = new Transaction();
+		// if(algType == "btree"){
+		for (String field : sch.fields()) {
+			if(fieldIndexStat.get(field) == true){
+				CreateBtree.loadIndex(tblName, field, "bt" + field, txnew);
+			}
+			
+		}
+		// }
+		txnew.commit();
 		// if(init != null)
 		// System.out.println("init mall");
 		// init.dummy();
 	}
 
 	public void execCurrentSystem(String tblName, int bufferSize, String typeBnl, int clickCount, String dbName) {
-//		System.out.println("dbname:" + dbName);
-//		String dirName = "C:\\Users\\oblmv2" + "\\" + dbName;
-//		System.out.println(dirName);
-//		File dir = new File(dirName);
-//
-//		for (String filename : dir.list()) {
-//			//System.out.println("filename:" + filename);
-//			if (filename.startsWith("bt") || filename.startsWith("nom")) {
-//				new File(dir, filename).delete();
-//				System.out.println("silinen file:" + filename);
-//			}
-//		}
+		// System.out.println("dbname:" + dbName);
+		// String dirName = "C:\\Users\\oblmv2" + "\\" + dbName;
+		// System.out.println(dirName);
+		// File dir = new File(dirName);
+		//
+		// for (String filename : dir.list()) {
+		// //System.out.println("filename:" + filename);
+		// if (filename.startsWith("bt") || filename.startsWith("nom")) {
+		// new File(dir, filename).delete();
+		// System.out.println("silinen file:" + filename);
+		// }
+		// }
 
 		init = new InitOneTable(tblName, sch);
 		init.setSkylineFiels(getSelectedSkylineFields());
@@ -74,18 +90,22 @@ public class Test1 {
 		// diskErisimSayýsý = (FileMgr.getReadCount() +
 		// FileMgr.getWriteCount());
 		if (typeBnl == "btree") {
-			execBtree = new ExecutorForBtree();
-			diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+			execBtree = new ExecutorForBtree(dbName);
+			//diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
 			algorithmStartTime = System.currentTimeMillis();
+			Runtime runtime1 = Runtime.getRuntime();
 			execBtree.exec4Btree(clickCount, bufferSize, tblName, selectedSkylineFields);
+			System.out.println("toplam bellek:"+runtime1.totalMemory() / 1000000 +" MB");
+			System.out.println("kullanýlan bellek:"+(runtime1.totalMemory() - runtime1.freeMemory()) / 1000000 +" MB");
+			System.out.println("bellek kullaným oraný:" + ((runtime1.totalMemory() - runtime1.freeMemory())/runtime1.totalMemory())*100);
 			algorithmStopTime = System.currentTimeMillis();
-			System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
-			diskErisimSayýsý2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+			//System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
+			//diskErisimSayýsý2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
 
-			System.out.println("sonraki disk eriþim sayýsý:" + diskErisimSayýsý2);
-			System.out.println("hesap disk eriþim sayýsý:" + (diskErisimSayýsý2 - diskErisimSayýsý));
+			//System.out.println("sonraki disk eriþim sayýsý:" + diskErisimSayýsý2);
+			//System.out.println("hesap disk eriþim sayýsý:" + (diskErisimSayýsý2 - diskErisimSayýsý));
 
-			System.out.println("dosya iþlemlerinden sonra elde edilen skyline:");
+		//	System.out.println("dosya iþlemlerinden sonra elde edilen skyline:");
 			execBtree.getS4bt().print();
 
 			long processTime = algorithmStopTime - algorithmStartTime;
@@ -93,10 +113,11 @@ public class Test1 {
 			System.out.println(
 					"algoritmanýn iþlem süresi:" + processTime / 60000 + " dakika " + (processTime % 60) + " saniye");
 			GraphicTest gt = new GraphicTest(InitOneTable.allTuples,
-					execBtree.getS4bt().getBuffArranger().getSkyline().getSkylinePoints());
+					execBtree.getS4bt().getSkylinePoints2());
 
-		} else {
-			buffArranger = new BufferArranger(typeBnl, selectedSkylineFields, bufferSize - 3, tblName, clickCount);
+		} else if(typeBnl != "rtree"){
+			Runtime runtime2 = Runtime.getRuntime();
+			buffArranger = new BufferArranger(dbName, typeBnl, selectedSkylineFields, bufferSize - 3, tblName, clickCount);
 			// buffArranger = new BufferArranger(typeBnl, selectedSkylineFields,
 			// buffSize - 3, tblName, clickCount);
 			diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
@@ -108,6 +129,10 @@ public class Test1 {
 			// System.out.println(" " + buffArranger.window.getInt("B"));
 			// }
 			buffArranger.readFromTemp();
+			System.out.println("toplam bellek:"+runtime2.totalMemory() / 1000000 +" MB");
+			System.out.println("kullanýlan bellek:"+(runtime2.totalMemory() - runtime2.freeMemory()) / 1000000 +" MB");
+			System.out.println("bellek kullaným oraný:" + ((runtime2.totalMemory() - runtime2.freeMemory())/runtime2.totalMemory())*100);
+			System.out.println("disk kullanum alaný:"+ buffArranger.extraStrorageInfo()/1024 +"KB" );
 			algorithmStopTime = System.currentTimeMillis();
 
 			System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
@@ -145,10 +170,25 @@ public class Test1 {
 				}
 			}
 			long processTime = algorithmStopTime - algorithmStartTime;
-
+			
 			System.out.println(
 					"algoritmanýn iþlem süresi:" + processTime / 60000 + " dakika " + (processTime % 60) + " saniye");
 			GraphicTest gt = new GraphicTest(InitOneTable.allTuples, buffArranger.getSkyline().getSkylinePoints());
+		}else{
+//			if(clickCount == 0){
+//				String treeDir = "A:\\bitirme_workspace\\git\\simpledb_server";
+//				File dir = new File(treeDir);
+//
+//				for (String filename : dir.list()){
+//			         if (filename.startsWith("tmp_rtree"))
+//			         new File(treeDir, filename).delete();
+//				}
+//			}
+			rtreeexec = new BBSExecutor(selectedSkylineFields);
+			rtreeexec.executeAllTreeOps(tblName,10,clickCount);
+			
+			GraphicTest gt = new GraphicTest(rtreeexec.getAllTuples(), rtreeexec.getSkylinePoints());
+
 		}
 	}
 
@@ -158,17 +198,17 @@ public class Test1 {
 		// String typeOfBnl = typeBnl;
 		// int windSize = winSize;
 		// String tableName = tblName;
-//		String dirName = "C:\\Users\\oblmv2" + "\\" + dbName;
-//		System.out.println(dirName);
-//		File dir = new File(dirName);
-//		
-//		for (String filename : dir.list()) {
-//			System.out.println("filename:" + filename);
-//			if (filename.startsWith("bt") || filename.startsWith("nom")) {
-//				new File(dir, filename).delete();
-//				System.out.println("silinen file:" + filename);
-//			}
-//		}
+		// String dirName = "C:\\Users\\oblmv2" + "\\" + dbName;
+		// System.out.println(dirName);
+		// File dir = new File(dirName);
+		//
+		// for (String filename : dir.list()) {
+		// System.out.println("filename:" + filename);
+		// if (filename.startsWith("bt") || filename.startsWith("nom")) {
+		// new File(dir, filename).delete();
+		// System.out.println("silinen file:" + filename);
+		// }
+		// }
 
 		init = new InitOneTable(tblName, sch);
 		/* bnl,windsize,tableName burada atanacak. */
@@ -181,29 +221,37 @@ public class Test1 {
 
 		init.dummy();
 		if (typeBnl == "btree") {
-			execBtree = new ExecutorForBtree();
-			diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+			execBtree = new ExecutorForBtree(dbName);
+			//diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
 			algorithmStartTime = System.currentTimeMillis();
+			Runtime runtime3 = Runtime.getRuntime();
 			execBtree.exec4Btree(clickCount, buffSize, tblName, selectedSkylineFields);
-			algorithmStopTime = System.currentTimeMillis();
-			System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
-			diskErisimSayýsý2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+			System.out.println("toplam bellek:"+runtime3.totalMemory() / 1000000 +" MB");
+			System.out.println("kullanýlan bellek:"+(runtime3.totalMemory() - runtime3.freeMemory()) / 1000000 +" MB");
+			System.out.println("bellek kullaným oraný:" + ((runtime3.totalMemory() - runtime3.freeMemory())/runtime3.totalMemory())*100);
 
-			System.out.println("sonraki disk eriþim sayýsý:" + diskErisimSayýsý2);
-			System.out.println("hesap disk eriþim sayýsý:" + (diskErisimSayýsý2 - diskErisimSayýsý));
+			algorithmStopTime = System.currentTimeMillis();
+			//System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
+			//diskErisimSayýsý2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
+
+			//System.out.println("sonraki disk eriþim sayýsý:" + diskErisimSayýsý2);
+			//System.out.println("hesap disk eriþim sayýsý:" + (diskErisimSayýsý2 - diskErisimSayýsý));
 
 			System.out.println("dosya iþlemlerinden sonra elde edilen skyline:");
 			execBtree.getS4bt().print();
+			
 
 			long processTime = algorithmStopTime - algorithmStartTime;
 
 			System.out.println(
 					"algoritmanýn iþlem süresi:" + processTime / 60000 + " dakika " + (processTime % 60) + " saniye");
 			GraphicTest gt = new GraphicTest(InitOneTable.allTuples,
-					execBtree.getS4bt().getBuffArranger().getSkyline().getSkylinePoints());
+					execBtree.getS4bt().getSkylinePoints2());
 
-		} else {
-			buffArranger = new BufferArranger(typeBnl, selectedSkylineFields, buffSize - 3, tblName, clickCount);
+		} else if(typeBnl != "rtree"){
+			Runtime runtime4 = Runtime.getRuntime();
+
+			buffArranger = new BufferArranger(dbName,typeBnl, selectedSkylineFields, buffSize - 3, tblName, clickCount);
 			diskErisimSayýsý = (FileMgr.getReadCount() + FileMgr.getWriteCount());
 			System.out.println("önceki disk eriþim sayýsý:" + diskErisimSayýsý);
 			long algorithmStartTime = System.currentTimeMillis();
@@ -214,6 +262,10 @@ public class Test1 {
 			// System.out.println(" " + buffArranger.window.getInt("B"));
 			// }
 			buffArranger.readFromTemp();
+			System.out.println("toplam bellek:"+runtime4.totalMemory() / 1000000 +" MB");
+			System.out.println("kullanýlan bellek:"+(runtime4.totalMemory() - runtime4.freeMemory()) / 1000000 +" MB");
+			System.out.println("bellek kullaným oraný:" + ((runtime4.totalMemory() - runtime4.freeMemory())/runtime4.totalMemory())*100);
+			System.out.println("disk kullanum alaný:"+ buffArranger.extraStrorageInfo()/1024 +"KB" );
 			long algorithmStopTime = System.currentTimeMillis();
 			// buffArranger.getInput().close();
 			diskErisimSayýsý2 = (FileMgr.getReadCount() + FileMgr.getWriteCount());
@@ -267,6 +319,20 @@ public class Test1 {
 			// }
 			// System.out.println("skyline size in test1:" + skylines.length);
 			GraphicTest gt = new GraphicTest(InitOneTable.allTuples, buffArranger.getSkyline().getSkylinePoints());
+
+		}else{
+			if(clickCount == 0){
+				String treeDir = "A:\\bitirme_workspace\\git\\simpledb_server";
+				File dir = new File(treeDir);
+
+				for (String filename : dir.list()){
+			         if (filename.startsWith("tmp_rtree"))
+			         new File(treeDir, filename).delete();
+				}
+			}
+			rtreeexec = new BBSExecutor(selectedSkylineFields);
+			rtreeexec.executeAllTreeOps(tblName,10,clickCount);
+			GraphicTest gt = new GraphicTest(rtreeexec.getAllTuples(), rtreeexec.getSkylinePoints());
 
 		}
 

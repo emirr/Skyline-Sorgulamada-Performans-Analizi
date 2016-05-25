@@ -47,6 +47,7 @@ public class BTreePage {
 		this.ti = ti;
 		this.tx = tx;
 		slotsize = ti.recordLength();
+		//System.out.println("slotsize in btrrepage:" + slotsize);
 		tx.pin(currentblk);
 	}
 
@@ -180,6 +181,7 @@ public class BTreePage {
 	 */
 	public void insertDir(int slot, Constant val, int blknum) {
 		insert(slot);
+		//System.out.println("dir insert ediliyor slot no-blokno-val inbtreepage:"+slot +"-"+ blknum+"-"+val);
 		setVal(slot, "dataval", val);
 		setInt(slot, "block", blknum);
 	}
@@ -242,7 +244,7 @@ public class BTreePage {
 
 	private int getInt(int slot, String fldname) {
 		int pos = fldpos(slot, fldname);
-//		System.out.println("pos:"+pos);
+	//	System.out.println("btreepage pos-slot:"+pos +"-"+slot);
 //		if(currentblk != null)
 //			System.out.println("currentblk null deðil");
 		return tx.getInt(currentblk, pos);
